@@ -13,13 +13,19 @@ while cap.isOpened():
     if not ret:
         break
 
-    results = model.predict(frame)
+    with torch.no_grad():
+        results = model.predict(frame)
 
     annotated_frame = results[0].plot()
 
     cv2.imshow("Pose Detection", annotated_frame)
+
+    del annotated_frame
+    torch.cuda.empty_cache()
     if cv2.waitKey(1) & 0xFF == ord('q'):
         break
 
+del results
+torch.cuda.empty_cache()
 cap.release()
 cv2.destroyAllWindows()
