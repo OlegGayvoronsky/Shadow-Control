@@ -1,6 +1,5 @@
 import numpy as np
 import cv2
-from scipy.interpolate import interp1d
 
 def create_segment(segment):
     target_fps = 30
