@@ -5,7 +5,6 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
-from torchmetrics import Accuracy
 from torchmetrics.classification import Accuracy
 
 from train_model_utils import ActionDataset, LSTMModel, data_load_and_separate, train_loop
@@ -42,6 +41,6 @@ if __name__ == "__main__":
     model = LSTMModel(INPUT_DIM, hidden_dim=128, output_dim=num_classes).to(device)
     criterion = nn.BCEWithLogitsLoss()
     optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
-    accuracy = Accuracy(task='multilabel', num_labels=num_classes)
+    accuracy = Accuracy(task='multilabel', num_labels=num_classes).to(device)
 
     train_loop(EPOCHS, model, train_loader, test_loader, device, optimizer, criterion, log_dir, best_model_path, accuracy)

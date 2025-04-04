@@ -3,6 +3,7 @@ import numpy as np
 import os
 import time
 import mediapipe as mp
+from train_model_utils import extract_keypoints
 
 
 mp_pose = mp.solutions.pose
@@ -20,10 +21,6 @@ mp_drawing = mp.solutions.drawing_utils
 # Создаем объект для записи видео
 frame_size = (640, 480)
 fourcc = cv2.VideoWriter_fourcc(*"mp4v")
-
-def extract_keypoints(results):
-    pose = np.array([[res.x, res.y, res.z, res.visibility] for res in results.pose_landmarks.landmark]).flatten() if results.pose_landmarks else np.zeros(33*4)
-    return pose
 
 
 def setup_folders(DATA_PATH, actions, no_sequences):
