@@ -1,3 +1,4 @@
+import os
 import sys
 import cv2
 import pandas as pd
@@ -59,7 +60,8 @@ class VideoLabelingApp(QWidget):
         btn_layout.addWidget(self.add_label_btn)
 
         self.action_combo = QComboBox()
-        self.action_combo.addItems([])
+        self.action_combo.addItems(["sit down", "jump", "one-handed weapon attack", "two-handed weapon attack", "shield block", "weapon block",
+        "attacking magic", "bowstring pull", "nothing"])
         self.action_combo.currentIndexChanged.connect(self.on_action_changed)
         btn_layout.addWidget(self.action_combo)
 
@@ -134,7 +136,8 @@ class VideoLabelingApp(QWidget):
             return
 
         self.current_time = self.cap.get(cv2.CAP_PROP_POS_MSEC) / 1000.0
-        self.time_label.setText(f"Текущее время: {self.current_time:.2f} сек")
+        self.time_label.setText(f"Текущее время: {self.current_time:.2f} сек\nТекущий кадр: {int(self.cap.get(cv2.CAP_PROP_POS_FRAMES))}")
+
 
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         h, w, ch = frame.shape
@@ -174,7 +177,7 @@ class VideoLabelingApp(QWidget):
 
     def export_csv(self):
         df = pd.DataFrame(self.annotations, columns=["start_frame", "end_frame", "action"])
-        df.to_csv("annotations.csv", index=False)
+        df.to_csv(os.path.join("TestData", "annotations.csv"), index=False)
         print("Разметка сохранена в annotations.csv")
 
         self.setFocus()
@@ -213,7 +216,8 @@ class VideoLabelingApp(QWidget):
             self.video_label.setPixmap(QPixmap.fromImage(qimg))
             self.slider.setValue(frame_number)
             self.current_time = self.cap.get(cv2.CAP_PROP_POS_MSEC) / 1000.0
-            self.time_label.setText(f"Текущее время: {self.current_time:.2f} сек")
+            self.time_label.setText(
+                f"Текущее время: {self.current_time:.2f} сек\nТекущий кадр: {int(self.cap.get(cv2.CAP_PROP_POS_FRAMES))}")
 
 
 if __name__ == "__main__":

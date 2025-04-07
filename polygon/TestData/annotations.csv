@@ -1,0 +1,51 @@
+start_frame,end_frame,action
+1,38,nothing
+38,57,one-handed weapon attack
+58,409,one-handed weapon attack
+413,435,shield block
+439,574,one-handed weapon attack
+575,602,shield block
+603,732,one-handed weapon attack
+733,858,shield block
+859,961,one-handed weapon attack
+1006,1241,two-handed weapon attack
+1285,1534,attacking magic
+1850,1937,bowstring pull
+1967,2058,bowstring pull
+2081,2166,bowstring pull
+2195,2292,bowstring pull
+2317,2399,bowstring pull
+2426,2718,bowstring pull
+2984,3062,sit down
+3092,3143,jump
+3197,3222,jump
+3443,3626,attacking magic
+3639,3648,attacking magic
+3673,3682,attacking magic
+3714,3722,attacking magic
+3778,4279,two-handed weapon attack
+4307,4382,weapon block
+4423,4452,weapon block
+4504,4533,shield block
+4559,4590,shield block
+4615,4719,shield block
+4755,4824,sit down
+4875,4898,jump
+4952,4998,shield block
+5031,5072,shield block
+6042,6073,sit down
+6140,6168,sit down
+6232,6257,jump
+6330,6533,one-handed weapon attack
+6816,6857,one-handed weapon attack
+6878,6894,shield block
+6913,6933,shield block
+6953,6977,shield block
+7037,7175,bowstring pull
+7197,7248,bowstring pull
+7270,7312,bowstring pull
+7335,7376,bowstring pull
+7396,7427,bowstring pull
+7449,7483,bowstring pull
+7514,7545,bowstring pull
+7563,7590,bowstring pull

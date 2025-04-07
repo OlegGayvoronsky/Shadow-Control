@@ -25,8 +25,7 @@ if __name__ == "__main__":
 
     # Действия
     actions = np.array(
-        ["walking forward", "walking backward", "walking left", "walking right", "running forward", "running back",
-        "sit down", "jump", "one-handed weapon attack", "two-handed weapon attack", "shield block", "weapon block",
+        ["sit down", "jump", "one-handed weapon attack", "two-handed weapon attack", "shield block", "weapon block",
         "attacking magic", "bowstring pull", "nothing"])
     label_map = {action: idx for idx, action in enumerate(actions)}
     num_classes = len(actions)

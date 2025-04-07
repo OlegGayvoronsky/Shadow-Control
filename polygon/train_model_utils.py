@@ -1,7 +1,8 @@
 import os
 import numpy as np
 import torch
-from sklearn.model_selection import train_test_split
+from sklearn.utils import shuffle
+from skmultilearn.model_selection import iterative_train_test_split
 from torch import nn
 from torch.utils.data import Dataset
 from torch.utils.tensorboard import SummaryWriter
@@ -63,7 +64,8 @@ def data_load_and_separate(actions, DATA_PATH, SEQUENCE_LENGTH, label_map, num_c
     for i in range(len(labels)):
         y[i][labels[i]] = 1
 
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.05, random_state=42)
+    X, y = shuffle(X, y, random_state=42)
+    X_train, y_train, X_test, y_test = iterative_train_test_split(X, y, test_size=0.05)
     X_train, X_test = torch.tensor(X_train, dtype=torch.float32), torch.tensor(X_test, dtype=torch.float32)
     y_train, y_test = torch.tensor(y_train, dtype=torch.float32), torch.tensor(y_test, dtype=torch.float32)
     return X_train, X_test, y_train, y_test
@@ -130,4 +132,5 @@ def predict(model, data, device):
     if not isinstance(data, torch.Tensor):
         data = torch.from_numpy(data).float()
     data = data.to(device)
-    return (torch.sigmoid(model(data)) > 0.5).int()
+    pred = torch.sigmoid(model(data))
+    return (pred > 0.7).int()
