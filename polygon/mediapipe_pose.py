@@ -21,7 +21,7 @@ mp_drawing = mp.solutions.drawing_utils
 actions = np.array(
         ["left weapon attack", "right weapon attack", "two-handed weapon attack", "shield block",
          "weapon block", "left attacking magic", "right attacking magic", "left use magic",
-         "right use magic", "bowstring pull", "nothing"])
+         "right use magic", "bowstring pull", "nothing", "visca el Barca"])
 label_map = {action: idx for idx, action in enumerate(actions)}
 invers_label_map = {idx: action for idx, action in enumerate(actions)}
 num_classes = len(actions)
