@@ -71,7 +71,7 @@ if __name__ == "__main__":
 
     model = LSTMModel(INPUT_DIM, hidden_dim=128, output_dim=num_classes).to(device)
     accuracy = Accuracy(task='multilabel', num_labels=num_classes).to(device)
-    model.load_state_dict(torch.load("checkpoints/experiment_add_iterative_train_test_split/best_model.pth"))
+    model.load_state_dict(torch.load("checkpoints/experiment_20250410-125405/best_model.pth"))
     model.eval()
 
     train_loop = tqdm(test_loader, desc="test", leave=False)

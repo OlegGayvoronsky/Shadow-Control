@@ -33,13 +33,26 @@ def setup_folders(DATA_PATH, actions, no_sequences):
             os.makedirs(os.path.join(DATA_PATH, action, str(dirmax + sequence)), exist_ok=True)
 
 def collect_keypoints(actions, start_folder, no_sequences):
-    cap = cv2.VideoCapture(0)
+    cap = cv2.VideoCapture(1, cv2.CAP_DSHOW)
     for action in actions:
+        i = 0
         for sequence in range(start_folder, start_folder + no_sequences):
+            i += 1
             vid_path = os.path.join(DATA_PATH, action, str(sequence), "video.mp4")
             video_writer = cv2.VideoWriter(vid_path, fourcc, 30, frame_size)
             for frame_num in range(sequence_length):
                 ret, frame = cap.read()
+                if frame_num == 0:
+                    cv2.putText(frame, '{}'.format(action), (0, 320),
+                        cv2.FONT_HERSHEY_SIMPLEX, 2, (150, 224, 0), 4, cv2.LINE_AA)
+                    cv2.putText(frame, '{}/{}'.format(sequence, no_sequences), (30, 30),
+                        cv2.FONT_HERSHEY_SIMPLEX, 1, (150, 224, 0), 4, cv2.LINE_AA)
+                    cv2.imshow("Pose Detection", frame)
+                    if i == 1:
+                        cv2.waitKey(0)
+                        cv2.waitKey(2000)
+                    cv2.waitKey(1000)
+                    ret, frame = cap.read()
 
                 frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
                 results = pose.process(frame_rgb)
@@ -49,18 +62,9 @@ def collect_keypoints(actions, start_folder, no_sequences):
 
                 video_writer.write(frame)
 
-                if frame_num == 0:
-                    cv2.putText(frame, '{}'.format(action), (0, 320),
-                        cv2.FONT_HERSHEY_SIMPLEX, 2, (150, 224, 0), 4, cv2.LINE_AA)
-                    cv2.putText(frame, '{}/{}'.format(sequence - 1, no_sequences), (30, 30),
-                        cv2.FONT_HERSHEY_SIMPLEX, 1, (150, 224, 0), 4, cv2.LINE_AA)
-
-                    cv2.imshow("Pose Detection", frame)
-                    cv2.waitKey(1000)
-                else:
-                    cv2.putText(frame, '{}/{}'.format(sequence - 1, no_sequences), (30, 30),
-                                cv2.FONT_HERSHEY_SIMPLEX, 1, (150, 224, 0), 4, cv2.LINE_AA)
-                    cv2.imshow("Pose Detection", frame)
+                cv2.putText(frame, '{}/{}'.format(sequence, no_sequences), (30, 30),
+                            cv2.FONT_HERSHEY_SIMPLEX, 1, (150, 224, 0), 4, cv2.LINE_AA)
+                cv2.imshow("Pose Detection", frame)
 
                 keypoints = extract_keypoints(results)
                 npy_path = os.path.join(DATA_PATH, action, str(sequence), str(frame_num))
@@ -111,12 +115,12 @@ def make_test_video(data_path):
 
 
 if __name__ == "__main__":
-    mode = 2
+    mode = 1
     if mode == 1:
         DATA_PATH = os.path.join('VidData')
         os.makedirs(DATA_PATH, exist_ok=True)
 
-        actions = np.array(["walking forward", "walking backward", "walking left", "walking right", "running forward", "running back", "sit down", "jump", "one-handed weapon attack", "two-handed weapon attack", "shield block", "weapon block", "attacking magic", "bowstring pull", "nothing"])
+        actions = np.array(["left weapon attack", "right weapon attack", "two-handed weapon attack", "shield block", "weapon block", "left attacking magic", "right attacking magic", "left use magic", "right use magic", "bowstring pull", "nothing"])
         no_sequences = 50
         sequence_length = 30
         start_folder = 1

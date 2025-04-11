@@ -3,6 +3,7 @@ import numpy as np
 import torch
 import mediapipe as mp
 import time
+
 from train_model_utils import extract_keypoints, LSTMModel, predict
 
 mp_pose = mp.solutions.pose
@@ -12,14 +13,15 @@ pose = mp_pose.Pose(
     smooth_landmarks=False,
     enable_segmentation=False,
     min_detection_confidence=0.5,
-    min_tracking_confidence=0.7
+    min_tracking_confidence=0.9
 )
 mp_drawing = mp.solutions.drawing_utils
 
 
 actions = np.array(
-        ["sit down", "jump", "one-handed weapon attack", "two-handed weapon attack", "shield block", "weapon block",
-        "attacking magic", "bowstring pull", "nothing"])
+        ["left weapon attack", "right weapon attack", "two-handed weapon attack", "shield block",
+         "weapon block", "left attacking magic", "right attacking magic", "left use magic",
+         "right use magic", "bowstring pull", "nothing"])
 label_map = {action: idx for idx, action in enumerate(actions)}
 invers_label_map = {idx: action for idx, action in enumerate(actions)}
 num_classes = len(actions)
@@ -27,10 +29,10 @@ num_classes = len(actions)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(device)
 model = LSTMModel(33*4, hidden_dim=128, output_dim=num_classes).to(device)
-model.load_state_dict(torch.load("checkpoints/experiment_add_iterative_train_test_split/best_model.pth"))
+model.load_state_dict(torch.load("checkpoints/experiment_change_dataset/best_model.pth"))
 model.eval()
 
-cap = cv2.VideoCapture(0)
+cap = cv2.VideoCapture(1, cv2.CAP_DSHOW)
 sequence = []
 prev_time = time.time()
 pred = []
@@ -55,7 +57,7 @@ while cap.isOpened():
         with torch.no_grad():
             res = predict(model, np.expand_dims(sequence, axis=0), device)[0]
         pred = torch.where(res == 1)[0].cpu()
-        sequence = sequence[-15:]
+        sequence = sequence[-20:]
 
     curr_time = time.time()
     fps = 1 / (curr_time - prev_time)
