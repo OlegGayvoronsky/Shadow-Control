@@ -4,6 +4,8 @@ import cv2
 import numpy as np
 import os
 import mediapipe as mp
+from tqdm import tqdm
+
 from train_model_utils import extract_keypoints
 
 
@@ -31,6 +33,31 @@ def setup_folders(DATA_PATH, actions, no_sequences):
         dirmax = len(os.listdir(os.path.join(DATA_PATH, action)))
         for sequence in range(1, no_sequences + 1):
             os.makedirs(os.path.join(DATA_PATH, action, str(dirmax + sequence)), exist_ok=True)
+
+
+def collect_keypoints_from_video(actions, start_folder, no_sequences):
+    action_loop = tqdm(actions, desc="action loop", leave=False)
+    for action in action_loop:
+        sequence_loop = tqdm(range(start_folder, start_folder + no_sequences),
+                             desc=f"{action} sequence loop", leave=False)
+        for sequence in sequence_loop:
+            vid_path = os.path.join(DATA_PATH, action, str(sequence), "video.mp4")
+            cap = cv2.VideoCapture(vid_path)
+            for frame_num in range(sequence_length):
+                ret, frame = cap.read()
+
+                frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                results = pose.process(frame_rgb)
+
+                keypoints = extract_keypoints(results)
+                npy_path = os.path.join(DATA_PATH, action, str(sequence), str(frame_num) + "_3d")
+                np.save(npy_path, keypoints)
+
+                if cv2.waitKey(1) & 0xFF == ord('q'):
+                    break
+            cap.release()
+        sequence_loop.close()
+
 
 def collect_keypoints(actions, start_folder, no_sequences):
     cap = cv2.VideoCapture(1, cv2.CAP_DSHOW)
@@ -126,7 +153,7 @@ if __name__ == "__main__":
         start_folder = 1
 
         setup_folders(DATA_PATH, actions, no_sequences)
-        collect_keypoints(actions, start_folder, no_sequences)
+        collect_keypoints_from_video(actions, start_folder, no_sequences)
     elif mode == 2:
         DATA_PATH = os.path.join('TestData')
         make_test_video(DATA_PATH)

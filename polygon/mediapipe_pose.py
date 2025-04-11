@@ -13,7 +13,7 @@ pose = mp_pose.Pose(
     smooth_landmarks=False,
     enable_segmentation=False,
     min_detection_confidence=0.5,
-    min_tracking_confidence=0.9
+    min_tracking_confidence=0.7
 )
 mp_drawing = mp.solutions.drawing_utils
 
@@ -21,7 +21,7 @@ mp_drawing = mp.solutions.drawing_utils
 actions = np.array(
         ["left weapon attack", "right weapon attack", "two-handed weapon attack", "shield block",
          "weapon block", "left attacking magic", "right attacking magic", "left use magic",
-         "right use magic", "bowstring pull", "nothing", "visca el Barca"])
+         "right use magic", "bowstring pull", "nothing"])
 label_map = {action: idx for idx, action in enumerate(actions)}
 invers_label_map = {idx: action for idx, action in enumerate(actions)}
 num_classes = len(actions)
@@ -29,7 +29,7 @@ num_classes = len(actions)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(device)
 model = LSTMModel(33*4, hidden_dim=128, output_dim=num_classes).to(device)
-model.load_state_dict(torch.load("checkpoints/experiment_change_dataset/best_model.pth"))
+model.load_state_dict(torch.load("checkpoints/experiment_use-3dpoints/best_model.pth"))
 model.eval()
 
 cap = cv2.VideoCapture(1, cv2.CAP_DSHOW)
