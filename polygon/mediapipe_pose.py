@@ -4,7 +4,7 @@ import torch
 import mediapipe as mp
 import time
 
-from train_model_utils import extract_keypoints, LSTMModel, predict
+from train_model_utils import extract_keypoints, LSTMModel, predict, walk_predict
 
 mp_pose = mp.solutions.pose
 pose = mp_pose.Pose(
@@ -26,16 +26,28 @@ label_map = {action: idx for idx, action in enumerate(actions)}
 invers_label_map = {idx: action for idx, action in enumerate(actions)}
 num_classes = len(actions)
 
+walk_actions = np.array(
+        ["walk forward", "walk backward", "walk left", "walk right", "run forward", "run backward", "nothing"])
+walk_label_map = {action: idx for idx, action in enumerate(walk_actions)}
+invers_walk_label_map = {idx: action for idx, action in enumerate(walk_actions)}
+num_walk_classes = len(walk_actions)
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(device)
+
 model = LSTMModel(33*4, hidden_dim=128, output_dim=num_classes).to(device)
 model.load_state_dict(torch.load("checkpoints/experiment_use-3dpoints/best_model.pth"))
 model.eval()
+
+walk_model = LSTMModel(33*4, hidden_dim=128, output_dim=num_walk_classes).to(device)
+walk_model.load_state_dict(torch.load("checkpoints/run_model_experiment_more_data/best_model.pth"))
+walk_model.eval()
 
 cap = cv2.VideoCapture(1, cv2.CAP_DSHOW)
 sequence = []
 prev_time = time.time()
 pred = []
+walk_pred = 6
 while cap.isOpened():
     ret, frame = cap.read()
     if not ret:
@@ -56,7 +68,9 @@ while cap.isOpened():
         #             cv2.FONT_HERSHEY_SIMPLEX, 5, (0, 255, 0), 5)
         with torch.no_grad():
             res = predict(model, np.expand_dims(sequence, axis=0), device)[0]
+            walk_res = walk_predict(walk_model, np.expand_dims(sequence, axis=0), device)[0]
         pred = torch.where(res == 1)[0].cpu()
+        walk_pred = walk_res
         sequence = sequence[-20:]
 
     curr_time = time.time()
@@ -67,8 +81,16 @@ while cap.isOpened():
                 cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
     for i, lbl in enumerate(pred):
         lbl = lbl.item()
-        cv2.putText(frame, f"{invers_label_map[lbl]}", (0, 100 + 100 * i),
+        cv2.putText(frame, f"{invers_label_map[lbl]}", (0, 100 + 200 * i),
                     cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 255, 0), 2)
+    if results.pose_landmarks:
+        point = results.pose_landmarks.landmark[23]
+        h, w, _ = frame.shape
+        x = int(point.x * w)
+        y = int(point.y * h)
+        cv2.putText(frame, f"{invers_walk_label_map[walk_pred]}", (x, y),
+                    cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 255, 0), 2)
+        mp_drawing.draw_landmarks(frame, results.pose_landmarks, mp_pose.POSE_CONNECTIONS)
     cv2.imshow("Pose Detection", frame)
 
     torch.cuda.empty_cache()

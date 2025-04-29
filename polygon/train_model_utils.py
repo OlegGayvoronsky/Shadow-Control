@@ -128,7 +128,6 @@ def data_load_and_separate(actions, DATA_PATH, SEQUENCE_LENGTH, label_map, num_c
 
     X, y = shuffle(X, y, random_state=42)
     X_train, y_train, X_test, y_test = iterative_train_test_split(X, y, test_size=0.05)
-    print(X_train.shape, y_train.shape)
 
     X_train, X_test = torch.tensor(X_train, dtype=torch.float32), torch.tensor(X_test, dtype=torch.float32)
     y_train, y_test = torch.tensor(y_train, dtype=torch.float32), torch.tensor(y_test, dtype=torch.float32)
@@ -196,4 +195,15 @@ def predict(model, data, device):
         data = torch.from_numpy(data).float()
     data = data.to(device)
     pred = torch.sigmoid(model(data))
-    return (pred > 0.8).int()
+    return (pred >= 0.8).int()
+
+
+def walk_predict(model, data, device):
+    if not isinstance(data, torch.Tensor):
+        data = torch.from_numpy(data).float()
+    data = data.to(device)
+    pred = torch.sigmoid(model(data))[0]
+    v, i = torch.max(pred, dim=0)
+    if v >= 0.8:
+        return [i.item()]
+    return [6]
