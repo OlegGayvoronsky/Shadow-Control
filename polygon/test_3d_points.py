@@ -1,12 +1,12 @@
+from math import acos, degrees
 import cv2
 import numpy as np
 import torch
 import mediapipe as mp
 import time
-
 from matplotlib import pyplot as plt
-
 from train_model_utils import extract_keypoints, LSTMModel, predict
+
 
 mp_pose = mp.solutions.pose
 pose = mp_pose.Pose(
@@ -33,11 +33,19 @@ model = LSTMModel(33*4, hidden_dim=128, output_dim=num_classes).to(device)
 model.load_state_dict(torch.load("checkpoints/experiment_20250410-125405/best_model.pth"))
 model.eval()
 
-cap = cv2.VideoCapture(1, cv2.CAP_DSHOW)
+
 prev_time = time.time()
+x = np.array([1, 0, 0])
+z = np.array([0, 0, 1])
+spine = z
+angle1 = 0
+angle2 = 0
+
+cap = cv2.VideoCapture(1, cv2.CAP_DSHOW)
 plt.ion()
 fig = plt.figure()
 ax = fig.add_subplot(111, projection='3d')
+
 while cap.isOpened():
     ret, frame = cap.read()
     if not ret:
@@ -59,24 +67,55 @@ while cap.isOpened():
 
     if results.pose_world_landmarks:
         landmarks = results.pose_world_landmarks.landmark
-
         x_vals = [-lm.x for lm in landmarks]
         z_vals = [-lm.y for lm in landmarks]
         y_vals = [-lm.z for lm in landmarks]
+
+        nose = np.array([x_vals[0], y_vals[0], z_vals[0]])
+        l_ear = np.array([x_vals[7], y_vals[7], z_vals[7]])
+        r_ear = np.array([x_vals[8], y_vals[8], z_vals[8]])
+        l_sh = np.array([x_vals[11], y_vals[11], z_vals[11]])
+        r_sh = np.array([x_vals[12], y_vals[12], z_vals[12]])
+        l_hip = np.array([x_vals[23], y_vals[23], z_vals[23]])
+        r_hip = np.array([x_vals[24], y_vals[24], z_vals[24]])
+        spine = (l_sh + r_sh) / 2 - (l_hip + r_hip) / 2
+        spine[1] = 0
+        norms = np.linalg.norm(spine)
+        if norms != 0: spine /= norms
+
+        head = (l_ear + r_ear) / 2
+        vision1, vision2 = nose - head, nose - head
+        vision1[0] = 0
+        vision2[2] = 0
+        norm1 = np.linalg.norm(vision1)
+        norm2 = np.linalg.norm(vision2)
+        if norm1 != 0: vision1 /= norm1
+        if norm2 != 0: vision2 /= norm2
+        angle1 = degrees(acos(vision1 @ z))
+        angle2 = degrees(acos(vision2 @ x))
+        if abs(degrees(acos(spine @ z))) > 5:
+            angle1 = 90
+            angle2 = 90
 
         ax.scatter(x_vals, y_vals, z_vals, c='r')
         for connection in mp_pose.POSE_CONNECTIONS:
             p1, p2 = connection
             ax.plot([x_vals[p1], x_vals[p2]], [y_vals[p1], y_vals[p2]], [z_vals[p1], z_vals[p2]], 'b')
 
-    plt.draw()
+    fig.canvas.draw()
+    fig.canvas.flush_events()
 
     curr_time = time.time()
     fps = 1 / (curr_time - prev_time)
     prev_time = curr_time
 
+
     cv2.putText(frame, f"FPS: {fps:.2f}", (10, 30),
                 cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+    cv2.putText(frame, f"a1: {angle1:.2f}", (10, 130),
+                cv2.FONT_HERSHEY_SIMPLEX, 3, (0, 0, 0), 2)
+    cv2.putText(frame, f"a2: {angle2:.2f}", (10, 230),
+                cv2.FONT_HERSHEY_SIMPLEX, 3, (0, 0, 0), 2)
     cv2.imshow("Pose Detection", frame)
 
     torch.cuda.empty_cache()
@@ -88,17 +127,3 @@ del results
 torch.cuda.empty_cache()
 cap.release()
 cv2.destroyAllWindows()
-
-# # y, z = [], []
-# # for hi in history:
-# #     y.append(-hi.y)
-# #     z.append(-hi.z)
-#
-# # y = np.array(y)
-# # z = np.array(z)
-#
-# plt.ioff()
-# plt.figure()
-#
-# plt.plot(history)
-# plt.show()
