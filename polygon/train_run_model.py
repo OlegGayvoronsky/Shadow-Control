@@ -24,8 +24,8 @@ if __name__ == "__main__":
     print(device)
 
     # Действия
-    actions = np.array(
-        ["walk forward", "walk backward", "walk left", "walk right", "run forward", "run backward", "nothing"])
+    actions = np.array(["walk forward", "walk backward", "walk left", "walk right", "run forward",
+                            "run backward", "sit", "nothing"])
     label_map = {action: idx for idx, action in enumerate(actions)}
     num_classes = len(actions)
 
