@@ -4,6 +4,8 @@ import cv2
 import numpy as np
 import os
 import mediapipe as mp
+from tqdm import tqdm
+
 from train_model_utils import extract_keypoints
 
 
@@ -32,7 +34,32 @@ def setup_folders(DATA_PATH, actions, no_sequences):
         for sequence in range(1, no_sequences + 1):
             os.makedirs(os.path.join(DATA_PATH, action, str(dirmax + sequence)), exist_ok=True)
 
-def collect_keypoints(actions, start_folder, no_sequences):
+
+# def collect_keypoints_from_video(actions, start_folder, no_sequences):
+#     action_loop = tqdm(actions, desc="action loop", leave=False)
+#     for action in action_loop:
+#         sequence_loop = tqdm(range(start_folder, start_folder + no_sequences),
+#                              desc=f"{action} sequence loop", leave=False)
+#         for sequence in sequence_loop:
+#             vid_path = os.path.join(DATA_PATH, action, str(sequence), "video.mp4")
+#             cap = cv2.VideoCapture(vid_path)
+#             for frame_num in range(sequence_length):
+#                 ret, frame = cap.read()
+#
+#                 frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+#                 results = pose.process(frame_rgb)
+#
+#                 keypoints = extract_keypoints(results)
+#                 npy_path = os.path.join(DATA_PATH, action, str(sequence), str(frame_num) + "_3d")
+#                 np.save(npy_path, keypoints)
+#
+#                 if cv2.waitKey(1) & 0xFF == ord('q'):
+#                     break
+#             cap.release()
+#         sequence_loop.close()
+
+
+def collect_keypoints(actions, start_folder, no_sequences, DATA_PATH):
     cap = cv2.VideoCapture(1, cv2.CAP_DSHOW)
     for action in actions:
         i = 0
@@ -45,7 +72,7 @@ def collect_keypoints(actions, start_folder, no_sequences):
                 if frame_num == 0:
                     cv2.putText(frame, '{}'.format(action), (0, 320),
                         cv2.FONT_HERSHEY_SIMPLEX, 2, (150, 224, 0), 4, cv2.LINE_AA)
-                    cv2.putText(frame, '{}/{}'.format(sequence, no_sequences), (30, 30),
+                    cv2.putText(frame, '{}/{}'.format(sequence, start_folder + no_sequences), (30, 30),
                         cv2.FONT_HERSHEY_SIMPLEX, 1, (150, 224, 0), 4, cv2.LINE_AA)
                     cv2.imshow("Pose Detection", frame)
                     if i == 1:
@@ -67,7 +94,7 @@ def collect_keypoints(actions, start_folder, no_sequences):
                 cv2.imshow("Pose Detection", frame)
 
                 keypoints = extract_keypoints(results)
-                npy_path = os.path.join(DATA_PATH, action, str(sequence), str(frame_num))
+                npy_path = os.path.join(DATA_PATH, action, str(sequence), str(frame_num) + "_3d")
                 np.save(npy_path, keypoints)
 
                 if cv2.waitKey(1) & 0xFF == ord('q'):
@@ -117,18 +144,19 @@ def make_test_video(data_path):
 if __name__ == "__main__":
     mode = 1
     if mode == 1:
-        DATA_PATH = os.path.join('VidData')
+        DATA_PATH = os.path.join('VidData_run')
         os.makedirs(DATA_PATH, exist_ok=True)
 
-        actions = np.array(["left weapon attack", "right weapon attack", "two-handed weapon attack", "shield block", "weapon block", "left attacking magic", "right attacking magic", "left use magic", "right use magic", "bowstring pull", "nothing"])
+        actions = np.array(["walk forward", "walk backward", "walk left", "walk right", "run forward",
+                            "run backward", "jump", "sit", "nothing"])
         no_sequences = 50
         sequence_length = 30
-        start_folder = 1
+        start_folder = 101
 
         setup_folders(DATA_PATH, actions, no_sequences)
-        collect_keypoints(actions, start_folder, no_sequences)
+        collect_keypoints(actions, start_folder, no_sequences, DATA_PATH)
     elif mode == 2:
         DATA_PATH = os.path.join('TestData')
         make_test_video(DATA_PATH)
     else:
-        print("Crocodilo Bombordiro or TunTUnTUnTun?")
+        print("Crocodilo Bombordiro or TunTUnTUnTun Sahur?")
