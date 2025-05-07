@@ -1,0 +1,14 @@
+{
+    "appid": "228980",
+    "name": "Steamworks Common Redistributables",
+    "exe": [
+        "C:/Program Files (x86)/Steam/steamapps/common/Steamworks Shared/_CommonRedist/DirectX/Jun2010/DXSETUP.exe",
+        "C:/Program Files (x86)/Steam/steamapps/common/Steamworks Shared/_CommonRedist/vcredist/2015/vc_redist.x64.exe",
+        "C:/Program Files (x86)/Steam/steamapps/common/Steamworks Shared/_CommonRedist/vcredist/2015/vc_redist.x86.exe"
+    ],
+    "assets": {
+        "cover": ".",
+        "header": "C:/Program Files (x86)/Steam/appcache/librarycache/228980/library_hero.jpg",
+        "logo": "C:/Program Files (x86)/Steam/appcache/librarycache/228980/logo.png"
+    }
+}
