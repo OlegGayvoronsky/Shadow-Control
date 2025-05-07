@@ -8,7 +8,7 @@
     ],
     "assets": {
         "cover": ".",
-        "header": "C:/Program Files (x86)/Steam/appcache/librarycache/228980/library_hero.jpg",
+        "hero": "C:/Program Files (x86)/Steam/appcache/librarycache/228980/library_hero.jpg",
         "logo": "C:/Program Files (x86)/Steam/appcache/librarycache/228980/logo.png"
     }
 }

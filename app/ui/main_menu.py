@@ -8,25 +8,31 @@ from PySide6.QtWidgets import (
     QVBoxLayout, QHBoxLayout, QScrollArea, QGridLayout, QMessageBox
 )
 from PySide6.QtGui import QPixmap, QIcon, QPalette, QLinearGradient, QColor, QBrush
-from PySide6.QtCore import Qt, QSize
+from PySide6.QtCore import Qt, QSize, QTimer
+from ui.add_game import AddGameDialog
+import shutil
 
 GAMES_DIR = Path(__file__).resolve().parent.parent / "games"
 creator = CreateGameFolders()
 
 class GameTile(QPushButton):
-    def __init__(self, game):
-        super().__init__()
-        game_name = game.get("name")
-        cover_path = game.get("assets").get("cover")
+    def __init__(self, game, parent=None):
+        super().__init__(parent)
+        self.game = game
+        self.parent_window = parent
         self.setFixedSize(150, 200)
         self.setCursor(Qt.PointingHandCursor)
 
-        # Устанавливаем иконку обложки
-        pixmap = QPixmap(cover_path).scaled(150, 200, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        appid = game.get("appid")
+        if appid == -1:
+            for k, path in game.get("assets").items():
+                game["assets"][k] = str(GAMES_DIR / path).replace("\\", "/")
+        cover_path = game.get("assets").get("cover")
+
+        pixmap = QPixmap(str(cover_path)).scaled(150, 200, Qt.KeepAspectRatio, Qt.SmoothTransformation)
         self.setIcon(QIcon(pixmap))
         self.setIconSize(QSize(150, 200))
 
-        # Стилизация кнопки
         self.setStyleSheet("""
             QPushButton {
                 border: 2px solid transparent;
@@ -34,15 +40,21 @@ class GameTile(QPushButton):
                 padding: 0px;
             }
             QPushButton:hover {
-                border: 2px solid #00ffff;
+                border: 10px solid #02e5e5;
                 background-color: rgba(0, 255, 255, 30);
             }
         """)
 
-        self.clicked.connect(lambda: self.open_game(game_name))
+        self.clicked.connect(self.open_game)
 
-    def open_game(self, game_name):
-        QMessageBox.information(self, "Открытие игры", f"Меню игры: {game_name}")
+    def open_game(self):
+        from ui.game_menu import GameMenu
+        game_folder = Path("games") / self.game["name"]
+        self.game_window = GameMenu(self.game, game_folder)
+        self.game_window.show()
+
+        if self.parent_window:
+            self.parent_window.close()
 
 
 
@@ -54,19 +66,19 @@ class MainMenu(QWidget):
         self.showMaximized()
 
         self.set_dark_gradient_background()
+        self.tiles = []
 
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(20, 20, 20, 20)
 
         # Верхняя панель
         top_bar = QHBoxLayout()
-
         self.games_label = QLabel("Игры: (0)")
-        self.games_label.setStyleSheet("color: #a855f7; font-size: 18px; font-weight: bold;")
+        self.games_label.setStyleSheet("color: white; font-size: 18px; font-weight: bold;")
 
-        add_game_btn = QPushButton("Добавить новую игру")
-        add_game_btn.clicked.connect(self.add_game_placeholder)
-        add_game_btn.setStyleSheet("""
+        self.add_game_btn = QPushButton("Добавить новую игру")
+        self.add_game_btn.clicked.connect(self.add_game)
+        self.add_game_btn.setStyleSheet("""
             QPushButton {
                 color: white;
                 background-color: #7e22ce;
@@ -82,7 +94,7 @@ class MainMenu(QWidget):
 
         top_bar.addWidget(self.games_label)
         top_bar.addStretch()
-        top_bar.addWidget(add_game_btn)
+        top_bar.addWidget(self.add_game_btn)
         main_layout.addLayout(top_bar)
 
         # Область со скроллом
@@ -100,6 +112,7 @@ class MainMenu(QWidget):
         main_layout.addWidget(self.scroll_area)
 
         self.load_games()
+        QTimer.singleShot(0, self.populate_grid)
 
     def set_dark_gradient_background(self):
         palette = QPalette()
@@ -110,8 +123,40 @@ class MainMenu(QWidget):
         self.setAutoFillBackground(True)
         self.setPalette(palette)
 
-    def add_game_placeholder(self):
-        QMessageBox.information(self, "Добавить игру", "Заглушка — добавление новой игры")
+    def add_game(self):
+        dialog = AddGameDialog()
+        if dialog.exec():
+            game_data = dialog.get_data()
+            if not game_data:
+                return
+
+            game_name = game_data["name"]
+            game_path = GAMES_DIR / game_name
+
+            if game_path.exists():
+                QMessageBox.warning(self, "Ошибка", "Игра с таким именем уже существует.")
+                for key, path in game_data["assets"].items():
+                    if "temp/" in path:
+                        os.unlink(path)
+                return
+
+            os.makedirs(game_path / "assets", exist_ok=True)
+
+            for key, path in game_data["assets"].items():
+                type = path.split(".")[-1]
+
+                dst = Path(game_name) / "assets" / f"{key}.{type}"
+                shutil.copy(path, GAMES_DIR / dst)
+                game_data["assets"][key] = str(dst).replace("\\", "/")
+                if "temp/" in path:
+                    os.unlink(path)
+
+            with open(game_path / "appmanifest.json", "w", encoding="utf-8") as f:
+                json.dump(game_data, f, indent=4, ensure_ascii=False)
+
+            QMessageBox.information(self, "Успех", f"Игра '{game_name}' добавлена.")
+            self.load_games()
+            QTimer.singleShot(0, self.populate_grid)
 
     def load_games(self):
         self.clear_grid()
@@ -121,9 +166,7 @@ class MainMenu(QWidget):
             os.makedirs(GAMES_DIR)
 
         games = [d for d in GAMES_DIR.iterdir() if d.is_dir()]
-
-        col_count = 7
-        row = col = 0
+        self.tiles = []
 
         for gf in games:
             game_folder = GAMES_DIR / gf
@@ -134,18 +177,36 @@ class MainMenu(QWidget):
             if game.get('assets').get('cover') == ".":
                 continue
 
-            tile = GameTile(game)
-            self.grid_layout.addWidget(tile, row, col)
+            tile = GameTile(game, self)
+            self.tiles.append(tile)
 
-            col += 1
-            if col >= col_count:
-                col = 0
-                row += 1
-
-        self.games_label.setText(f"Игры: ({len(games)})")
+        self.games_label.setText(f"Игры: ({len(self.tiles)})")
 
     def clear_grid(self):
         for i in reversed(range(self.grid_layout.count())):
             widget = self.grid_layout.itemAt(i).widget()
             if widget is not None:
                 widget.setParent(None)
+
+    def populate_grid(self):
+        self.clear_grid()
+        if not self.tiles:
+            return
+
+        available_width = self.scroll_area.viewport().width()
+        tile_width = 150
+        spacing = self.grid_layout.spacing()
+        columns = max(1, available_width // (tile_width + spacing))
+
+        row = col = 0
+        for tile in self.tiles:
+            self.grid_layout.addWidget(tile, row, col)
+            col += 1
+            if col >= columns:
+                col = 0
+                row += 1
+
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        if hasattr(self, "grid_layout"):
+            self.populate_grid()

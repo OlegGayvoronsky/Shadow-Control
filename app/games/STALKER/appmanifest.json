@@ -1,0 +1,12 @@
+{
+    "appid": -1,
+    "name": "STALKER",
+    "exe": [
+        "C:/Users/ogajv/AppData/Roaming/.minecraft/TLauncher.exe"
+    ],
+    "assets": {
+        "cover": "STALKER/assets/cover.jpg",
+        "logo": "STALKER/assets/logo.png",
+        "hero": "STALKER/assets/hero.png"
+    }
+}

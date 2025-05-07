@@ -6,7 +6,7 @@
     ],
     "assets": {
         "cover": "C:/Program Files (x86)/Steam/appcache/librarycache/227300/library_600x900.jpg",
-        "header": "C:/Program Files (x86)/Steam/appcache/librarycache/227300/library_hero.jpg",
+        "hero": "C:/Program Files (x86)/Steam/appcache/librarycache/227300/library_hero.jpg",
         "logo": "C:/Program Files (x86)/Steam/appcache/librarycache/227300/logo.png"
     }
 }

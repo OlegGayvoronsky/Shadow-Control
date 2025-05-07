@@ -60,16 +60,16 @@ class CreateGameFolders:
             cover_path = assets_path / "library_600x900.jpg"
             if not cover_path.exists():
                 cover_path = Path("")
-            header_path = assets_path / "library_hero.jpg"
-            if not header_path.exists():
-                header_path = Path("")
+            hero_path = assets_path / "library_hero.jpg"
+            if not hero_path.exists():
+                hero_path = Path("")
             logo_path = assets_path / "logo.png"
             if not logo_path.exists():
                 logo_path = Path("")
 
             assets = {
                 "cover": str(cover_path).replace("\\", "/"),
-                "header": str(header_path).replace("\\", "/"),
+                "hero": str(hero_path).replace("\\", "/"),
                 "logo": str(logo_path).replace("\\", "/")
             }
 
