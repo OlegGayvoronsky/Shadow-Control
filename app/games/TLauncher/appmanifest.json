@@ -1,0 +1,12 @@
+{
+    "appid": -1,
+    "name": "TLauncher",
+    "exe": [
+        "C:/Users/ogajv/AppData/Roaming/.minecraft/TLauncher.exe"
+    ],
+    "assets": {
+        "cover": "C:/Users/ogajv/Documents/GitHub/Shadow-Control/app/games/TLauncher/assets/cover.jpg",
+        "logo": "C:/Users/ogajv/Documents/GitHub/Shadow-Control/app/games/TLauncher/assets/logo.png",
+        "hero": "C:/Users/ogajv/Documents/GitHub/Shadow-Control/app/games/TLauncher/assets/hero.png"
+    }
+}

@@ -124,7 +124,7 @@ class MainMenu(QWidget):
         self.setPalette(palette)
 
     def add_game(self):
-        dialog = AddGameDialog()
+        dialog = AddGameDialog("Добавить игру")
         if dialog.exec():
             game_data = dialog.get_data()
             if not game_data:

@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QLabel, QLineEdit, QPushButton,
     QFileDialog, QHBoxLayout, QMessageBox
@@ -13,21 +15,21 @@ class AddGameDialog(QDialog):
         self.setWindowTitle(f"{type}")
         self.setFixedSize(400, 400)
         self.setStyleSheet(self.load_styles())
+        self._type = type
 
-        self.cover_path = game.get("assets").get("cover")
-        self.logo_path = game.get("assets").get("logo")
-        self.hero_path = game.get("assets").get("hero")
+        self.cover_path = None
+        self.logo_path = None
+        self.hero_path = None
 
         layout = QVBoxLayout()
 
-        # Имя игры
-        self.name_input = QLineEdit()
-        self.name_input.setPlaceholderText("Имя игры *")
-        layout.addWidget(self.name_input)
-
         # Путь до exe
         self.exe_input = QLineEdit()
-        self.exe_input.setPlaceholderText("Путь до исполняемого файла *")
+        if game:
+            self.exe_input.setText(game.get("exe", "")[0])
+        else:
+            self.exe_input.setPlaceholderText("Путь до .exe файла")
+
         exe_btn = QPushButton("Выбрать файл .exe")
         exe_btn.clicked.connect(self.choose_exe)
         layout.addWidget(self.exe_input)
@@ -50,7 +52,7 @@ class AddGameDialog(QDialog):
 
         # Кнопки управления
         button_layout = QHBoxLayout()
-        add_btn = QPushButton("Добавить")
+        add_btn = QPushButton("Добавить" if self._type == "Добавить игру" else "Изменить")
         cancel_btn = QPushButton("Отмена")
         cancel_btn.setObjectName("cancelBtn")
         add_btn.clicked.connect(self.accept)
@@ -119,21 +121,21 @@ class AddGameDialog(QDialog):
             setattr(self, f"{image_type}_path", file_path)
 
     def get_data(self):
-        name = self.name_input.text().strip()
         exe_path = self.exe_input.text().strip()
 
-        if not name or not exe_path:
-            QMessageBox.warning(self, "Ошибка", "Поля 'Имя игры' и 'Путь до .exe' обязательны.")
+        if not exe_path:
+            QMessageBox.warning(self, "Ошибка", "Поле 'Путь до .exe' должно быть заполнено!")
             return None
 
+        name = Path(exe_path).name.split(".")[0]
         return {
             "appid": -1,
             "name": name,
             "exe": [exe_path],
             "assets": {
-                "cover": self.cover_path or self.create_placeholder(name, "cover"),
-                "logo": self.logo_path or self.create_placeholder(name, "logo"),
-                "hero": self.hero_path or self.create_placeholder(name, "hero")
+                "cover": self.cover_path or (self.create_placeholder(name, "cover") if self._type != "Изменить параметры игры" else None),
+                "logo": self.logo_path or (self.create_placeholder(name, "logo") if self._type != "Изменить параметры игры" else None),
+                "hero": self.hero_path or (self.create_placeholder(name, "hero") if self._type != "Изменить параметры игры" else None)
             }
         }
 
