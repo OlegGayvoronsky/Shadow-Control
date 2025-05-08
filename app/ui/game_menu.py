@@ -1,12 +1,83 @@
 from PySide6.QtWidgets import (
     QWidget, QLabel, QPushButton, QVBoxLayout, QHBoxLayout,
-    QScrollArea, QFrame
+    QScrollArea, QFrame, QStackedLayout
 )
-from PySide6.QtGui import QPixmap, QIcon, QCursor
-from PySide6.QtCore import Qt, QSize
+from PySide6.QtGui import QPixmap, QIcon, QCursor, QColor, QEnterEvent, QPainter
+from PySide6.QtCore import Qt, QSize, Property, QPropertyAnimation, QEasingCurve
 import os
 import json
 import subprocess
+
+class AnimatedButton(QPushButton):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._bg_color = QColor("#636363")
+        self._target_color = QColor("#636363")
+        self._animation = QPropertyAnimation(self, b"bgColor")
+        self._animation.setDuration(200)
+        self._animation.setEasingCurve(QEasingCurve.InOutQuad)
+
+        self.setFixedSize(40, 40)
+        self.setIconSize(QSize(32, 32))
+        self.setCursor(QCursor(Qt.PointingHandCursor))
+        self.setStyleSheet(self._get_stylesheet(self._bg_color))
+
+    def _get_stylesheet(self, color):
+        return f"""
+            QPushButton {{
+                background-color: {color.name()};
+                border: none;
+                border-radius: 20px;
+            }}
+        """
+
+    def enterEvent(self, event: QEnterEvent):
+        self._animate_to(QColor("#575656"))
+        super().enterEvent(event)
+
+    def leaveEvent(self, event):
+        self._animate_to(QColor("#636363"))
+        super().leaveEvent(event)
+
+    def _animate_to(self, color: QColor):
+        self._target_color = color
+        self._animation.stop()
+        self._animation.setStartValue(self._bg_color)
+        self._animation.setEndValue(color)
+        self._animation.start()
+
+    def get_bg_color(self):
+        return self._bg_color
+
+    def set_bg_color(self, color):
+        self._bg_color = color
+        self.setStyleSheet(self._get_stylesheet(color))
+
+    bgColor = Property(QColor, get_bg_color, set_bg_color)
+
+class HeroFrame(QFrame):
+    def __init__(self, game_data, parent=None):
+        super().__init__(parent)
+        self.game_data = game_data
+        self.setMinimumHeight(400)
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        # Отображаем фоновое изображение
+        hero_image = QPixmap(self.game_data.get("assets").get('hero'))
+        if not hero_image.isNull():
+            painter.drawPixmap(self.rect(), hero_image)
+
+        # Отображаем логотип
+        logo_path = self.game_data.get("assets").get("logo")
+        if os.path.exists(logo_path):
+            logo_pixmap = QPixmap(logo_path)
+            logo_pixmap = logo_pixmap.scaledToHeight(200, Qt.SmoothTransformation)
+            logo_rect = logo_pixmap.rect()
+            logo_rect.moveCenter(self.rect().center())  # Центрируем логотип
+            painter.drawPixmap(logo_rect, logo_pixmap)
+
+        painter.end()
 
 
 class GameMenu(QWidget):
@@ -46,33 +117,15 @@ class GameMenu(QWidget):
         self.layout.addWidget(self.top_bar)
 
     def setup_hero_header(self):
-        self.hero = QFrame()
-        self.hero.setMinimumHeight(400)
-        self.hero.setStyleSheet(f"""
-            QFrame {{
-                background-image: url("{self.game_data.get("assets").get('hero')}");
-                background-position: center;
-                background-repeat: no-repeat;
-            }}
-        """)
+        self.hero = HeroFrame(self.game_data, self)
+
         self.hero_layout = QVBoxLayout(self.hero)
         self.hero_layout.setContentsMargins(20, 20, 20, 20)
-        self.hero_layout.setSpacing(20)
+        self.hero_layout.setSpacing(0)
 
-        # Центрированный по вертикали логотип
-        logo_path = self.game_data.get("assets").get("logo")
-        if os.path.exists(logo_path):
-            pixmap = QPixmap(logo_path).scaledToHeight(200, Qt.SmoothTransformation)
-            self.logo = QLabel()
-            self.logo.setPixmap(pixmap)
-            self.logo.setAlignment(Qt.AlignCenter)
-            self.hero_layout.addStretch()
-            self.hero_layout.addWidget(self.logo, alignment=Qt.AlignHCenter)
-            self.hero_layout.addStretch()
-
-        # Нижняя панель с кнопками
-        bottom_layout = QHBoxLayout()
-
+        self.hero_layout.addStretch()
+        play_layout = QHBoxLayout()
+        play_layout.addStretch()
         self.play_button = QPushButton("Играть")
         self.play_button.setFixedSize(160, 50)
         self.play_button.setStyleSheet("""
@@ -89,28 +142,25 @@ class GameMenu(QWidget):
             }
         """)
         self.play_button.clicked.connect(self.launch_game)
-
-        # Центрирование play-кнопки по всей ширине
-        play_layout = QHBoxLayout()
-        play_layout.addStretch()
         play_layout.addWidget(self.play_button)
         play_layout.addStretch()
-
-        # Кнопка настроек внизу справа
-        self.settings_button = QPushButton()
-        icon_path = "assets/gear.png"
-        self.settings_button.setIcon(QIcon(icon_path))
-        self.settings_button.setIconSize(QSize(32, 32))
-        self.settings_button.setCursor(QCursor(Qt.PointingHandCursor))
-        self.settings_button.setStyleSheet("background: #7A7A7A;")
-        self.settings_button.clicked.connect(self.open_edit_dialog)
-        bottom_layout.addStretch()
-        bottom_layout.addWidget(self.settings_button, alignment=Qt.AlignRight)
-
         self.hero_layout.addLayout(play_layout)
-        self.hero_layout.addLayout(bottom_layout)
 
         self.layout.addWidget(self.hero)
+
+        self.settings_button = AnimatedButton(self.hero)
+        self.settings_button.setIcon(QIcon("assets/gear.png"))
+        self.settings_button.clicked.connect(self.open_edit_dialog)
+
+        self.hero.resizeEvent = self.position_gear_button
+
+    def position_gear_button(self, event):
+        # Отступ от правого и нижнего края
+        margin = 20
+        btn_size = self.settings_button.sizeHint()
+        x = self.hero.width() - btn_size.width() - margin
+        y = self.hero.height() - btn_size.height() - margin
+        self.settings_button.move(x, y)
 
     def go_back(self):
         from ui.main_menu import MainMenu

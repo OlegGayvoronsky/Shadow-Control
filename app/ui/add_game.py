@@ -8,15 +8,15 @@ import os
 
 
 class AddGameDialog(QDialog):
-    def __init__(self):
+    def __init__(self, type, game=None):
         super().__init__()
-        self.setWindowTitle("Добавить игру")
+        self.setWindowTitle(f"{type}")
         self.setFixedSize(400, 400)
         self.setStyleSheet(self.load_styles())
 
-        self.cover_path = None
-        self.logo_path = None
-        self.hero_path = None
+        self.cover_path = game.get("assets").get("cover")
+        self.logo_path = game.get("assets").get("logo")
+        self.hero_path = game.get("assets").get("hero")
 
         layout = QVBoxLayout()
 
