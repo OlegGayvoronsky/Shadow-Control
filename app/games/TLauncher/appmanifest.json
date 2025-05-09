@@ -1,6 +1,7 @@
 {
     "appid": -1,
     "name": "TLauncher",
+    "installdir": "TLauncher",
     "exe": [
         "C:/Users/ogajv/AppData/Roaming/.minecraft/TLauncher.exe"
     ],

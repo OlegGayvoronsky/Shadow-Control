@@ -1,6 +1,7 @@
 {
     "appid": "227300",
     "name": "Euro Truck Simulator 2",
+    "installdir": "Euro Truck Simulator 2",
     "exe": [
         "C:/Program Files (x86)/Steam/steamapps/common/Euro Truck Simulator 2/bin/win_x64/eurotrucks2.exe"
     ],

@@ -76,6 +76,7 @@ class CreateGameFolders:
             game_data = {
                 "appid": appid,
                 "name": name,
+                "installdir": installdir,
                 "exe": [str(e).replace("\\", "/") for e in exe_files],
                 "assets": assets
             }

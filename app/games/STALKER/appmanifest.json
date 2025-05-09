@@ -1,6 +1,7 @@
 {
     "appid": -1,
     "name": "STALKER",
+    "installdir": "STALKER",
     "exe": [
         "C:/Users/ogajv/AppData/Roaming/.minecraft/TLauncher.exe"
     ],

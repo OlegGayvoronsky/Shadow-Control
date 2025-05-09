@@ -49,7 +49,7 @@ class GameTile(QPushButton):
 
     def open_game(self):
         from ui.game_menu import GameMenu
-        game_folder = Path("games") / self.game["name"]
+        game_folder = Path("games") / self.game["installdir"]
         self.game_window = GameMenu(self.game, game_folder)
         self.game_window.show()
 
@@ -131,7 +131,8 @@ class MainMenu(QWidget):
                 return
 
             game_name = game_data["name"]
-            game_path = GAMES_DIR / game_name
+            install_dir = game_data["installdir"]
+            game_path = GAMES_DIR / install_dir
 
             if game_path.exists():
                 QMessageBox.warning(self, "Ошибка", "Игра с таким именем уже существует.")
@@ -145,7 +146,7 @@ class MainMenu(QWidget):
             for key, path in game_data["assets"].items():
                 type = path.split(".")[-1]
 
-                dst = Path(game_name) / "assets" / f"{key}.{type}"
+                dst = Path(install_dir) / "assets" / f"{key}.{type}"
                 shutil.copy(path, GAMES_DIR / dst)
                 game_data["assets"][key] = str(dst).replace("\\", "/")
                 if "temp/" in path:

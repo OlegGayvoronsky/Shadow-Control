@@ -6,7 +6,7 @@ from PySide6.QtWidgets import (
     QScrollArea, QFrame, QStackedLayout, QMessageBox, QLineEdit
 )
 from PySide6.QtGui import QPixmap, QIcon, QCursor, QColor, QEnterEvent, QPainter, QPalette, QLinearGradient, QBrush, \
-    QKeySequence, QKeyEvent, QMouseEvent
+    QKeySequence, QKeyEvent, QMouseEvent, QFocusEvent, QCloseEvent
 from PySide6.QtCore import Qt, QSize, Property, QPropertyAnimation, QEasingCurve
 import os
 import json
@@ -85,119 +85,106 @@ class HeroFrame(QFrame):
         painter.end()
 
 class KeyBindingLineEdit(QLineEdit):
-    def __init__(self):
+    def __init__(self, settings_pth):
         super().__init__()
+        self.settings_pth = settings_pth
         self.setReadOnly(True)
-        self.pressed_keys = set()
+        self.recording_started = False
+        self.default_style = self.styleSheet()  # Сохраняем стандартный стиль
+
+    def startRecording(self):
+        """Активирует режим записи, очищает текст и подсвечивает ячейку."""
+        self.recording_started = True
+        self.clear()
+        self.setText("     ")
+        if "red" not in self.styleSheet():
+            self.default_style = self.styleSheet()
+        self.setStyleSheet("background-color: #4a4949; border: 2px solid gray;")
+
+    def stopRecording(self):
+        self.recording_started = False
+        flag = False
+        if os.path.exists(self.settings_pth):
+            with open(self.settings_pth, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                for action, keys in data.items():
+                    temp = " + ".join(keys) if isinstance(keys, list) else keys
+                    if temp == self.text():
+                        flag = True
+        if flag:
+            self.setText("Такая клавиша уже назначена")
+            self.setStyleSheet("background-color: #242424; border: 2px solid red;")
+        elif self.default_style:
+            self.setStyleSheet(self.default_style)
+        else:
+            # Если стиль не был сохранен, возвращаем дефолтный стиль
+            self.setStyleSheet("")
 
     def keyPressEvent(self, event: QKeyEvent):
-        modifiers = event.modifiers()
+        """Обрабатывает нажатия клавиш в режиме записи."""
+        if not self.recording_started:
+            return
 
-        key_sequence = []
+        modifiers = []
+        if event.modifiers() & Qt.ControlModifier:
+            modifiers.append("Ctrl")
+        if event.modifiers() & Qt.ShiftModifier:
+            modifiers.append("Shift")
+        if event.modifiers() & Qt.AltModifier:
+            modifiers.append("Alt")
 
-        if modifiers & Qt.ShiftModifier:
-            key_sequence.append("Shift")
-        if modifiers & Qt.ControlModifier:
-            key_sequence.append("Ctrl")
-        if modifiers & Qt.AltModifier:
-            key_sequence.append("Alt")
+        key = event.key()
+        key_name = QKeySequence(key).toString()
 
-        key_code = event.key()
-        key_text = event.text()
+        # Обработка специальных клавиш вручную
+        special_keys = {
+            Qt.Key_Space: "Space",
+            Qt.Key_Tab: "Tab",
+            Qt.Key_Escape: "Esc",
+            Qt.Key_Enter: "Enter",
+            Qt.Key_Return: "Enter",
+            Qt.Key_Backspace: "Backspace",
+            Qt.Key_Delete: "Delete",
+            Qt.Key_Left: "Left Arrow",
+            Qt.Key_Right: "Right Arrow",
+            Qt.Key_Up: "Up Arrow",
+            Qt.Key_Down: "Down Arrow",
+        }
 
-        # Обработка специальных клавиш
-        if key_code == Qt.Key_Space:
-            key_sequence.append("Space")  # Пробел
-        elif key_code == Qt.Key_Tab:
-            key_sequence.append("Tab")  # Табуляция
-        elif key_code == Qt.Key_Escape:
-            key_sequence.append("Esc")  # Escape
-        elif key_code == Qt.Key_Enter or key_code == Qt.Key_Return:
-            key_sequence.append("Enter")  # Enter или Return
-        elif key_code == Qt.Key_Backspace:
-            key_sequence.append("Backspace")  # Backspace
-        elif key_code == Qt.Key_Delete:
-            key_sequence.append("Delete")  # Delete
-        elif key_code == Qt.Key_Shift:
-            key_sequence.append("Shift")  # Shift
-        elif key_code == Qt.Key_Control:
-            key_sequence.append("Control")  # Control
-        elif key_code == Qt.Key_Alt:
-            key_sequence.append("Alt")  # Alt
-        elif key_code == Qt.Key_CapsLock:
-            key_sequence.append("CapsLock")  # CapsLock
-        elif key_code == Qt.Key_NumLock:
-            key_sequence.append("NumLock")  # NumLock
-        elif key_code == Qt.Key_ScrollLock:
-            key_sequence.append("ScrollLock")  # ScrollLock
-        elif key_code == Qt.Key_F1:
-            key_sequence.append("F1")  # F1
-        elif key_code == Qt.Key_F2:
-            key_sequence.append("F2")  # F2
-        elif key_code == Qt.Key_F3:
-            key_sequence.append("F3")  # F3
-        elif key_code == Qt.Key_F4:
-            key_sequence.append("F4")  # F4
-        elif key_code == Qt.Key_F5:
-            key_sequence.append("F5")  # F5
-        elif key_code == Qt.Key_F6:
-            key_sequence.append("F6")  # F6
-        elif key_code == Qt.Key_F7:
-            key_sequence.append("F7")  # F7
-        elif key_code == Qt.Key_F8:
-            key_sequence.append("F8")  # F8
-        elif key_code == Qt.Key_F9:
-            key_sequence.append("F9")  # F9
-        elif key_code == Qt.Key_F10:
-            key_sequence.append("F10")  # F10
-        elif key_code == Qt.Key_F11:
-            key_sequence.append("F11")  # F11
-        elif key_code == Qt.Key_F12:
-            key_sequence.append("F12")  # F12
-        elif key_code == Qt.Key_Left:
-            key_sequence.append("Left Arrow")  # Стрелка влево
-        elif key_code == Qt.Key_Right:
-            key_sequence.append("Right Arrow")  # Стрелка вправо
-        elif key_code == Qt.Key_Up:
-            key_sequence.append("Up Arrow")  # Стрелка вверх
-        elif key_code == Qt.Key_Down:
-            key_sequence.append("Down Arrow")  # Стрелка вниз
-        elif key_text:
-            if key_text not in key_sequence:
-                key_sequence.append(key_text.upper())
-        else:
-            key_sequence = []
-        if len(key_sequence) == 2 and key_sequence[0] == key_sequence[1]:
-            key_sequence = [key_sequence[0]]
+        key_str = special_keys.get(key, key_name)
 
-        if key_sequence:
-            self.setText(" + ".join(key_sequence))
-        else:
-            self.clear()
+        if key_str and key_str not in modifiers and key_str != "Control":
+            modifiers.append(key_str)
+
+        self.setText(" + ".join(modifiers))
 
     def mousePressEvent(self, event: QMouseEvent):
-        # Проверка, какая кнопка была нажата
-        modifiers = event.modifiers()
+        if not self.recording_started:
+            self.startRecording()
+            return
+
+        modifiers = []
+        if event.modifiers() & Qt.ControlModifier:
+            modifiers.append("Ctrl")
+        if event.modifiers() & Qt.ShiftModifier:
+            modifiers.append("Shift")
+        if event.modifiers() & Qt.AltModifier:
+            modifiers.append("Alt")
+
         button = event.button()
-
-        mouse_sequence = []
-        if modifiers & Qt.ShiftModifier:
-            mouse_sequence.append("Shift")
-        if modifiers & Qt.ControlModifier:
-            mouse_sequence.append("Ctrl")
-        if modifiers & Qt.AltModifier:
-            mouse_sequence.append("Alt")
-
         if button == Qt.LeftButton:
-            mouse_sequence.append("Left Click")
+            modifiers.append("Left Click")
         elif button == Qt.RightButton:
-            mouse_sequence.append("Right Click")
+            modifiers.append("Right Click")
         elif button == Qt.MiddleButton:
-            mouse_sequence.append("Middle Click")
+            modifiers.append("Middle Click")
 
-        if mouse_sequence:
-            self.setText(" + ".join(mouse_sequence))
+        self.setText(" + ".join(modifiers))
 
+    def focusOutEvent(self, event: QFocusEvent):
+        if self.recording_started:
+            self.stopRecording()
+        super().focusOutEvent(event)
 
 
 class GameMenu(QWidget):
@@ -208,7 +195,8 @@ class GameMenu(QWidget):
         self.showMaximized()
         self.game_data = game_data
         self.game_folder = game_folder
-        self.settings_path = os.path.join(game_folder, "settings.json")
+        self.global_game_folder = Path(__file__).resolve().parent.parent / game_folder
+        self.settings_path = os.path.join(str(self.global_game_folder), "settings.json").replace("\\", "/")
 
         self.set_dark_gradient_background()
 
@@ -218,6 +206,12 @@ class GameMenu(QWidget):
         self.setup_top_bar()
         self.setup_hero_header()
         self.setup_settings_area()
+        self.load_settings()
+
+    def closeEvent(self, event):
+        # Сохраняем настройки перед закрытием
+        self.save_settings()
+        event.accept()
 
     def setup_top_bar(self):
         self.top_bar = QFrame()
@@ -293,6 +287,7 @@ class GameMenu(QWidget):
 
     def go_back(self):
         from ui.main_menu import MainMenu
+        self.closeEvent(QCloseEvent())
         self.main_menu = MainMenu()
         self.main_menu.show()
         self.close()
@@ -325,8 +320,6 @@ class GameMenu(QWidget):
         self.add_setting_button.clicked.connect(lambda: self.add_setting_row("", ""))
         self.layout.addWidget(self.add_setting_button, alignment=Qt.AlignHCenter)
 
-        # self.load_settings()
-
     def add_setting_row(self, action_name="", key_binding=""):
         row_widget = QWidget()
         row_widget.setFixedHeight(40)
@@ -352,16 +345,16 @@ class GameMenu(QWidget):
         """)
 
         # Поле клавиши — специальное
-        key_field = KeyBindingLineEdit()
+        key_field = KeyBindingLineEdit(self.settings_path)
         key_field.setPlaceholderText("Клавиша")
         if key_binding != "":
             key_field.setText(key_binding)
         key_field.setFixedHeight(40)
         key_field.setStyleSheet("""
-            background-color: #34495e;
+            background-color: #242424;
             color: white;
             padding-left: 10px;
-            min-width: 100px;
+            min-width: 10px;
             border-top-right-radius: 5px;
             border-bottom-right-radius: 5px;
             border: none;
@@ -373,22 +366,30 @@ class GameMenu(QWidget):
         index = self.settings_layout.count() - 1
         self.settings_layout.insertWidget(index, row_widget)
 
-    # def load_settings(self):
-    #     if os.path.exists(self.settings_path):
-    #         with open(self.settings_path, "r", encoding="utf-8") as f:
-    #             data = json.load(f)
-    #             for action, key in data.items():
-    #                 self.add_setting_row(action, key)
+    def save_settings(self):
+        data = {}
+        for i in range(self.settings_layout.count() - 1):
+            row_widget = self.settings_layout.itemAt(i).widget()
+            if row_widget:
+                action_field = row_widget.findChild(QLineEdit)
+                key_field = row_widget.findChild(KeyBindingLineEdit)
+                if action_field and key_field:
+                    action = action_field.text().strip()
+                    key = key_field.text().strip()
+                    if key == "Такая клавиша уже назначена" or key == "Клавиша":
+                        key = ""
+                    data[action] = key
 
-    # def save_settings(self):
-    #     data = {}
-    #     for i in range(self.settings_container.count()):
-    #         row = self.settings_container.itemAt(i).layout()
-    #         action = row.itemAt(0).widget().text()
-    #         key = row.itemAt(1).widget().text()
-    #         data[action] = key
-    #     with open(self.settings_path, "w", encoding="utf-8") as f:
-    #         json.dump(data, f, ensure_ascii=False, indent=4)
+        # Записываем данные в файл JSON
+        with open(self.settings_path, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=4)
+
+    def load_settings(self):
+        if os.path.exists(self.settings_path):
+            with open(self.settings_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                for action, keys in data.items():
+                    self.add_setting_row(action, keys)
 
     def launch_game(self):
         exe_path = self.game_data.get("exe", "")

@@ -131,6 +131,7 @@ class AddGameDialog(QDialog):
         return {
             "appid": -1,
             "name": name,
+            "installdir": name,
             "exe": [exe_path],
             "assets": {
                 "cover": self.cover_path or (self.create_placeholder(name, "cover") if self._type != "Изменить параметры игры" else None),
