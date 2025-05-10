@@ -85,9 +85,11 @@ class HeroFrame(QFrame):
         painter.end()
 
 class KeyBindingLineEdit(QLineEdit):
-    def __init__(self, settings_pth):
+    def __init__(self, settings_pth, index):
         super().__init__()
+        self.value = self.text().strip()
         self.settings_pth = settings_pth
+        self.index = index
         self.setReadOnly(True)
         self.recording_started = False
         self.default_style = self.styleSheet()  # Сохраняем стандартный стиль
@@ -95,6 +97,7 @@ class KeyBindingLineEdit(QLineEdit):
     def startRecording(self):
         """Активирует режим записи, очищает текст и подсвечивает ячейку."""
         self.recording_started = True
+        self.value = self.text().strip()
         self.clear()
         self.setText("     ")
         if "red" not in self.styleSheet():
@@ -112,13 +115,28 @@ class KeyBindingLineEdit(QLineEdit):
                     if temp == self.text():
                         flag = True
         if flag:
-            self.setText("Такая клавиша уже назначена")
-            self.setStyleSheet("background-color: #242424; border: 2px solid red;")
-        elif self.default_style:
-            self.setStyleSheet(self.default_style)
+            self.setText(self.value)
+            if self.value != "":
+                self.setStyleSheet(self.default_style)
+            else:
+                self.setStyleSheet("background-color: #242424; border: 2px solid red;")
         else:
-            # Если стиль не был сохранен, возвращаем дефолтный стиль
-            self.setStyleSheet("")
+            if self.default_style:
+                self.setStyleSheet(self.default_style)
+            else:
+                self.setStyleSheet("")
+            with open(self.settings_pth, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                flag1 = 0
+                for i, action in enumerate(data.keys()):
+                    if i == self.index:
+                        data[action] = self.text().strip()
+                        flag1 = 1
+                if not flag1:
+                    data[f"{self.index}"] = self.text().strip()
+            with open(self.settings_pth, "w", encoding="utf-8") as f:
+                json.dump(data, f, ensure_ascii=False, indent=4)
+
 
     def keyPressEvent(self, event: QKeyEvent):
         """Обрабатывает нажатия клавиш в режиме записи."""
@@ -157,6 +175,8 @@ class KeyBindingLineEdit(QLineEdit):
             modifiers.append(key_str)
 
         self.setText(" + ".join(modifiers))
+        if self.recording_started:
+            self.stopRecording()
 
     def mousePressEvent(self, event: QMouseEvent):
         if not self.recording_started:
@@ -180,11 +200,16 @@ class KeyBindingLineEdit(QLineEdit):
             modifiers.append("Middle Click")
 
         self.setText(" + ".join(modifiers))
+        if self.recording_started:
+            self.stopRecording()
 
     def focusOutEvent(self, event: QFocusEvent):
         if self.recording_started:
             self.stopRecording()
         super().focusOutEvent(event)
+
+    def contextMenuEvent(self, event):
+        pass
 
 
 class GameMenu(QWidget):
@@ -345,7 +370,8 @@ class GameMenu(QWidget):
         """)
 
         # Поле клавиши — специальное
-        key_field = KeyBindingLineEdit(self.settings_path)
+        index = self.settings_layout.count() - 1
+        key_field = KeyBindingLineEdit(self.settings_path, index)
         key_field.setPlaceholderText("Клавиша")
         if key_binding != "":
             key_field.setText(key_binding)
@@ -363,7 +389,6 @@ class GameMenu(QWidget):
         row_layout.addWidget(action_field, 2)
         row_layout.addWidget(key_field, 1)
 
-        index = self.settings_layout.count() - 1
         self.settings_layout.insertWidget(index, row_widget)
 
     def save_settings(self):
