@@ -3,7 +3,7 @@ from pathlib import Path
 
 from PySide6.QtWidgets import (
     QWidget, QLabel, QPushButton, QVBoxLayout, QHBoxLayout,
-    QScrollArea, QFrame, QStackedLayout, QMessageBox, QLineEdit
+    QScrollArea, QFrame, QMessageBox, QLineEdit
 )
 from PySide6.QtGui import QPixmap, QIcon, QCursor, QColor, QEnterEvent, QPainter, QPalette, QLinearGradient, QBrush, \
     QKeySequence, QKeyEvent, QMouseEvent, QFocusEvent, QCloseEvent
@@ -11,7 +11,9 @@ from PySide6.QtCore import Qt, QSize, Property, QPropertyAnimation, QEasingCurve
 import os
 import json
 import subprocess
-from ui.add_game import AddGameDialog
+from ui.add_game_dialog import AddGameDialog
+from ui.collect_data_dialog import CollectDataDialog
+from logic.data_collector import DataCollectionWindow
 
 class AnimatedButton(QPushButton):
     def __init__(self, *args, **kwargs):
@@ -100,42 +102,26 @@ class KeyBindingLineEdit(QLineEdit):
         self.value = self.text().strip()
         self.clear()
         self.setText("     ")
-        if "red" not in self.styleSheet():
-            self.default_style = self.styleSheet()
+        self.default_style = self.styleSheet()
         self.setStyleSheet("background-color: #4a4949; border: 2px solid gray;")
 
     def stopRecording(self):
         self.recording_started = False
-        flag = False
-        if os.path.exists(self.settings_pth):
-            with open(self.settings_pth, "r", encoding="utf-8") as f:
-                data = json.load(f)
-                for action, keys in data.items():
-                    temp = " + ".join(keys) if isinstance(keys, list) else keys
-                    if temp == self.text():
-                        flag = True
-        if flag:
-            self.setText(self.value)
-            if self.value != "":
-                self.setStyleSheet(self.default_style)
-            else:
-                self.setStyleSheet("background-color: #242424; border: 2px solid red;")
+        if self.default_style:
+            self.setStyleSheet(self.default_style)
         else:
-            if self.default_style:
-                self.setStyleSheet(self.default_style)
-            else:
-                self.setStyleSheet("")
-            with open(self.settings_pth, "r", encoding="utf-8") as f:
-                data = json.load(f)
-                flag1 = 0
-                for i, action in enumerate(data.keys()):
-                    if i == self.index:
-                        data[action] = self.text().strip()
-                        flag1 = 1
-                if not flag1:
-                    data[f"{self.index}"] = self.text().strip()
-            with open(self.settings_pth, "w", encoding="utf-8") as f:
-                json.dump(data, f, ensure_ascii=False, indent=4)
+            self.setStyleSheet("")
+        with open(self.settings_pth, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            flag1 = 0
+            for i, action in enumerate(data.keys()):
+                if i == self.index:
+                    data[action] = self.text().strip()
+                    flag1 = 1
+            if not flag1:
+                data[f"{self.index}"] = self.text().strip()
+        with open(self.settings_pth, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=4)
 
 
     def keyPressEvent(self, event: QKeyEvent):
@@ -311,7 +297,7 @@ class GameMenu(QWidget):
         self.settings_button.move(x, y)
 
     def go_back(self):
-        from ui.main_menu import MainMenu
+        from ui.main_menu_window import MainMenu
         self.closeEvent(QCloseEvent())
         self.main_menu = MainMenu()
         self.main_menu.show()
@@ -321,16 +307,55 @@ class GameMenu(QWidget):
         self.layout.addSpacing(10)
         self.set_dark_gradient_background()
 
-        title = QLabel("НАСТРОЙКИ")
-        title.setAlignment(Qt.AlignHCenter)
-        title.setStyleSheet("font-size: 20px; margin-top: 10px;")
-        self.layout.addWidget(title)
+        # --- Верхний layout с кнопками и заголовком ---
+        header_layout = QHBoxLayout()
+        header_layout.setContentsMargins(20, 10, 20, 0)
 
-        # Контейнер для настроек
+        # Кнопка "Собрать данные"
+        self.collect_data_button = AnimatedButton()
+        self.collect_data_button.setIcon(QIcon("assets/folder.png"))
+        self.collect_data_button.setToolTip("Подготовить данные для настроек")
+        self.collect_data_button.clicked.connect(self.collect_data)
+
+        # Кнопка "Обучить модель"
+        self.prepare_model_button = AnimatedButton()
+        self.prepare_model_button.setIcon(QIcon("assets/brain.png"))
+        self.prepare_model_button.setToolTip("Обучить модель на собранных данных")
+        self.prepare_model_button.clicked.connect(self.prepare_model)
+
+        # Заголовок
+        title = QLabel("НАСТРОЙКИ")
+        title.setStyleSheet("font-size: 20px; font-weight: bold; color: white;")
+
+        # Кнопка "Добавить настройку"
+        self.add_setting_button = AnimatedButton()
+        self.add_setting_button.setIcon(QIcon("assets/add.png"))
+        self.add_setting_button.setToolTip("Добавить настройку")
+        self.add_setting_button.clicked.connect(lambda: self.add_setting_row("", ""))
+
+        # Обёртка для title + кнопка "добавить"
+        title_with_add_layout = QHBoxLayout()
+        title_with_add_layout.setContentsMargins(0, 0, 0, 0)
+        title_with_add_layout.setSpacing(8)
+        title_with_add_layout.addWidget(title)
+        title_with_add_layout.addWidget(self.add_setting_button)
+
+        title_container = QWidget()
+        title_container.setLayout(title_with_add_layout)
+
+        # --- Финальный header ---
+        header_layout.addWidget(self.collect_data_button, alignment=Qt.AlignLeft)
+        header_layout.addStretch()
+        header_layout.addWidget(title_container, alignment=Qt.AlignCenter)
+        header_layout.addStretch()
+        header_layout.addWidget(self.prepare_model_button, alignment=Qt.AlignRight)
+
+        self.layout.addLayout(header_layout)
+
+        # --- Контейнер для настроек ---
         self.settings_scroll = QScrollArea()
         self.settings_scroll.setWidgetResizable(True)
 
-        # Вложенный виджет, внутри которого вертикальный лейаут
         self.settings_widget = QWidget()
         self.settings_layout = QVBoxLayout(self.settings_widget)
         self.settings_layout.setContentsMargins(10, 10, 10, 10)
@@ -340,10 +365,41 @@ class GameMenu(QWidget):
         self.settings_scroll.setWidget(self.settings_widget)
         self.layout.addWidget(self.settings_scroll)
 
-        # Кнопка добавления
-        self.add_setting_button = QPushButton("+ Добавить настройку")
-        self.add_setting_button.clicked.connect(lambda: self.add_setting_row("", ""))
-        self.layout.addWidget(self.add_setting_button, alignment=Qt.AlignHCenter)
+    def collect_data(self):
+        flag = False
+        self.save_settings()
+        if os.path.exists(self.settings_path):
+            with open(self.settings_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                for action, keys in data.items():
+                    if action == "" or keys == "":
+                        flag = True
+                        break
+        if flag:
+            QMessageBox.warning(self, "Ошибка", "Для продолжения нужно задать имя класса и клавишу для каждой настройки")
+            return
+
+        dialog = CollectDataDialog(self.settings_path)
+        if dialog.exec():
+            selected_classes = dialog.get_selected_classes()
+
+            if not selected_classes:
+                QMessageBox.warning(self, "Ошибка", "Нужно выбрать хотя бы один класс.")
+                return
+
+            self.data_collection_window = DataCollectionWindow(
+                data_path=self.global_game_folder / "VidData",
+                actions=selected_classes,
+                no_sequences=5,
+                sequence_length=30,
+                start_folder=1
+            )
+
+            self.data_collection_window.show()
+
+
+    def prepare_model(self):
+        QMessageBox.information(self, "Подготовка модели", "Функция подготовки модели пока не реализована.")
 
     def add_setting_row(self, action_name="", key_binding=""):
         row_widget = QWidget()
@@ -393,7 +449,7 @@ class GameMenu(QWidget):
 
     def save_settings(self):
         data = {}
-        for i in range(self.settings_layout.count() - 1):
+        for i in range(self.settings_layout.count()):
             row_widget = self.settings_layout.itemAt(i).widget()
             if row_widget:
                 action_field = row_widget.findChild(QLineEdit)

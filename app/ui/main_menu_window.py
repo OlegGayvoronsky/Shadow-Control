@@ -4,12 +4,12 @@ import os
 from pathlib import Path
 from logic.create_game_folders import CreateGameFolders
 from PySide6.QtWidgets import (
-    QApplication, QWidget, QLabel, QPushButton,
+    QWidget, QLabel, QPushButton,
     QVBoxLayout, QHBoxLayout, QScrollArea, QGridLayout, QMessageBox
 )
 from PySide6.QtGui import QPixmap, QIcon, QPalette, QLinearGradient, QColor, QBrush
 from PySide6.QtCore import Qt, QSize, QTimer
-from ui.add_game import AddGameDialog
+from ui.add_game_dialog import AddGameDialog
 import shutil
 
 GAMES_DIR = Path(__file__).resolve().parent.parent / "games"
@@ -48,7 +48,7 @@ class GameTile(QPushButton):
         self.clicked.connect(self.open_game)
 
     def open_game(self):
-        from ui.game_menu import GameMenu
+        from ui.game_menu_window import GameMenu
         game_folder = Path("games") / self.game["installdir"]
         self.game_window = GameMenu(self.game, game_folder)
         self.game_window.show()

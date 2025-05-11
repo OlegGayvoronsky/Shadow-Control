@@ -148,7 +148,7 @@ if __name__ == "__main__":
         os.makedirs(DATA_PATH, exist_ok=True)
 
         actions = np.array(["walk forward", "walk backward", "walk left", "walk right", "run forward",
-                            "run backward", "jump", "sit", "nothing"])
+                            "run backward"])
         no_sequences = 50
         sequence_length = 30
         start_folder = 101

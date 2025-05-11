@@ -12,7 +12,7 @@ import os
 class AddGameDialog(QDialog):
     def __init__(self, type, game=None):
         super().__init__()
-        self.setWindowTitle(f"{type}")
+        self.setWindowFlags(Qt.FramelessWindowHint | Qt.Dialog)
         self.setFixedSize(400, 400)
         self.setStyleSheet(self.load_styles())
         self._type = type
