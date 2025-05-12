@@ -4,8 +4,8 @@ import time
 import numpy as np
 import mediapipe as mp
 from PySide6.QtCore import QThread, Signal, Qt
-from PySide6.QtGui import QImage, QPixmap
-from PySide6.QtWidgets import QWidget, QLabel, QProgressBar, QPushButton, QVBoxLayout, QMessageBox
+from PySide6.QtGui import QImage, QPixmap, QFont
+from PySide6.QtWidgets import QWidget, QLabel, QProgressBar, QPushButton, QVBoxLayout, QMessageBox, QHBoxLayout
 
 from logic.utils import extract_keypoints
 
@@ -14,8 +14,11 @@ class DataCollectorThread(QThread):
     update_progress = Signal(int, int)
     update_class_progress = Signal(int, int)
     finished = Signal()
+    show_message = Signal(str)
+    toggle_pause_button = Signal(bool)
 
     def __init__(self, actions, start_folder, no_sequences, sequence_length, data_path):
+        super().__init__()
         self.data_path = data_path
         os.makedirs(self.data_path, exist_ok=True)
 
@@ -25,6 +28,7 @@ class DataCollectorThread(QThread):
         self.sequence_length = sequence_length
         self.start_folder = start_folder
         self.running = True
+        self.paused = False
 
         self.mp_pose = mp.solutions.pose
         self.pose = self.mp_pose.Pose(
@@ -54,16 +58,25 @@ class DataCollectorThread(QThread):
         cap = cv2.VideoCapture(1, cv2.CAP_DSHOW)
 
         for idx, action in enumerate(self.actions):
+            self.update_progress.emit(0, self.no_sequences)
+            self.paused = True
+            self.show_message.emit(f"Класс: '{action}' — нажми 'Возобновить' для начала")
+            self.toggle_pause_button.emit(True)
+
+            while self.paused and self.running:
+                time.sleep(0.1)
+
+            for i in range(3, 0, -1):
+                self.show_message.emit(f"Сбор начнется через {i}...")
+                time.sleep(1)
             for sequence in range(self.start_folders[action], self.start_folders[action] + self.no_sequences):
                 if not self.running:
                     break
 
-                self.show_message.emit(f"Готовься: {action} ({sequence}/{self.no_sequences})")
-                time.sleep(2)
-
-                for i in range(3, 0, -1):
-                    self.show_message.emit(f"Сбор начнется через {i}...")
-                    time.sleep(1)
+                self.show_message.emit(f"{action} ({sequence - 1}/{self.start_folders[action] - 1 + self.no_sequences})")
+                while self.paused:
+                    time.sleep(0.1)
+                time.sleep(1)
                 vid_path = os.path.join(self.data_path, action, str(sequence), "video.mp4")
                 video_writer = cv2.VideoWriter(vid_path, self.fourcc, 30, self.frame_size)
 
@@ -85,53 +98,92 @@ class DataCollectorThread(QThread):
                     npy_path = os.path.join(self.data_path, action, str(sequence), f"{frame_num}_3d")
                     np.save(npy_path, keypoints)
 
-                self.update_progress.emit(sequence + 1)
+                self.update_progress.emit(sequence - self.start_folders[action] + 1, self.no_sequences)
 
-            self.update_class_progress.emit(idx + 1)
+            self.update_class_progress.emit(idx + 1, len(self.actions))
 
         cap.release()
         self.show_message.emit("Сбор завершен")
+        self.finished.emit()
 
     def stop(self):
         self.running = False
+
+    def pause(self):
+        self.paused = True
+
+    def resume(self):
+        self.paused = False
 
 
 class DataCollectionWindow(QWidget):
     def __init__(self, actions, start_folder, no_sequences, sequence_length, data_path):
         super().__init__()
-        self.setWindowTitle("Сбор данных")
-        self.setFixedSize(700, 600)
+        self.setWindowFlags(Qt.FramelessWindowHint | Qt.Dialog)
+        self.showMaximized()
+        self.is_paused = False
+
+        font_large = QFont("Arial", 27)
+        font_medium = QFont("Arial", 14)
 
         self.image_label = QLabel("Ожидание видео...")
-        self.image_label.setFixedSize(640, 480)
+        self.image_label.setFixedSize(700, 500)
         self.image_label.setAlignment(Qt.AlignCenter)
+        self.image_label.setFont(font_large)
 
         self.status_label = QLabel("Ожидание...")
         self.status_label.setAlignment(Qt.AlignCenter)
+        self.status_label.setFont(font_large)
 
         self.progress_bar = QProgressBar()
         self.progress_bar.setMaximum(no_sequences)
+        self.progress_bar.setStyleSheet("QProgressBar { height: 30px; font-size: 16px; }")
 
         self.class_progress_bar = QProgressBar()
         self.class_progress_bar.setMaximum(len(actions))
+        self.class_progress_bar.setStyleSheet("QProgressBar { height: 30px; font-size: 16px; }")
 
-        self.stop_button = QPushButton("Остановить")
-        self.stop_button.clicked.connect(self.stop_collection)
+        self.toggle_button = QPushButton("Остановить")
+        self.toggle_button.setFont(font_medium)
+        self.toggle_button.setFixedHeight(40)
+        self.toggle_button.clicked.connect(self.toggle_collection)
+
+        label_class_progress = QLabel("Прогресс текущего класса:")
+        label_class_progress.setFont(font_medium)
+
+        label_all_progress = QLabel("Прогресс по классам:")
+        label_all_progress.setFont(font_medium)
 
         layout = QVBoxLayout()
-        layout.addWidget(self.image_label)
+
+        # Центрируем QLabel с видео по горизонтали
+        image_layout = QHBoxLayout()
+        image_layout.addStretch()
+        image_layout.addWidget(self.image_label)
+        image_layout.addStretch()
+
+        layout.addLayout(image_layout)
         layout.addWidget(self.status_label)
-        layout.addWidget(QLabel("Прогресс текущего класса:"))
+
+        label_class_progress = QLabel("Прогресс текущего класса:")
+        label_class_progress.setFont(font_medium)
+        layout.addWidget(label_class_progress)
         layout.addWidget(self.progress_bar)
-        layout.addWidget(QLabel("Прогресс по классам:"))
+
+        label_all_progress = QLabel("Прогресс по классам:")
+        label_all_progress.setFont(font_medium)
+        layout.addWidget(label_all_progress)
         layout.addWidget(self.class_progress_bar)
-        layout.addWidget(self.stop_button)
+
+        layout.addWidget(self.toggle_button)
+
         self.setLayout(layout)
 
         self.thread = DataCollectorThread(actions, start_folder, no_sequences, sequence_length, data_path)
         self.thread.update_frame.connect(self.update_image)
         self.thread.update_progress.connect(self.progress_bar.setValue)
         self.thread.update_class_progress.connect(self.class_progress_bar.setValue)
+        self.thread.toggle_pause_button.connect(self.toggle_collection)
         self.thread.finished.connect(self.on_collection_finished)
         self.thread.show_message.connect(self.status_label.setText)
         self.thread.start()
@@ -153,3 +205,13 @@ class DataCollectionWindow(QWidget):
         self.thread.stop()
         self.thread.wait()
         self.close()
+
+    def toggle_collection(self):
+        if self.is_paused:
+            self.thread.resume()
+            self.toggle_button.setText("Остановить")
+            self.is_paused = False
+        else:
+            self.thread.pause()
+            self.toggle_button.setText("Возобновить")
+            self.is_paused = True

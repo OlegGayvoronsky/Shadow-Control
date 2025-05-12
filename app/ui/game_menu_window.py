@@ -208,6 +208,15 @@ class GameMenu(QWidget):
         self.game_folder = game_folder
         self.global_game_folder = Path(__file__).resolve().parent.parent / game_folder
         self.settings_path = os.path.join(str(self.global_game_folder), "settings.json").replace("\\", "/")
+        if os.path.exists(self.settings_path):
+            with open(self.settings_path, "r", encoding="utf-8") as f:
+                data = json.load(f)
+                if data == {}:
+                    data = {"Идти вперед": "W", "Идти назад": "S", "Идти влево": "A",
+                            "Идти вправо": "D", "Бег вперед": "Shift + W",
+                            "Бег назад": "Shift + S", "Прыжок": "Space", "Сесть": "Ctrl"}
+            with open(self.settings_path, "w", encoding="utf-8") as f:
+                json.dump(data, f, ensure_ascii=False, indent=4)
 
         self.set_dark_gradient_background()
 
@@ -390,7 +399,7 @@ class GameMenu(QWidget):
             self.data_collection_window = DataCollectionWindow(
                 data_path=self.global_game_folder / "VidData",
                 actions=selected_classes,
-                no_sequences=5,
+                no_sequences=50,
                 sequence_length=30,
                 start_folder=1
             )
@@ -399,7 +408,9 @@ class GameMenu(QWidget):
 
 
     def prepare_model(self):
-        QMessageBox.information(self, "Подготовка модели", "Функция подготовки модели пока не реализована.")
+        if not os.path.exists(self.global_game_folder / "VidData"):
+            QMessageBox.information(self, "Подготовка модели", f"Сначала нужно собрать данные для каждого действия")
+        
 
     def add_setting_row(self, action_name="", key_binding=""):
         row_widget = QWidget()
