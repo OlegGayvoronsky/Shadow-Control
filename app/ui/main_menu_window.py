@@ -1,5 +1,4 @@
 import json
-import sys
 import os
 from pathlib import Path
 from logic.create_game_folders import CreateGameFolders
@@ -9,7 +8,6 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtGui import QPixmap, QIcon, QPalette, QLinearGradient, QColor, QBrush
 from PySide6.QtCore import Qt, QSize, QTimer
-from ui.add_game_dialog import AddGameDialog
 import shutil
 
 GAMES_DIR = Path(__file__).resolve().parent.parent / "games"
@@ -124,6 +122,7 @@ class MainMenu(QWidget):
         self.setPalette(palette)
 
     def add_game(self):
+        from ui.add_game_dialog import AddGameDialog
         dialog = AddGameDialog("Добавить игру")
         if dialog.exec():
             game_data = dialog.get_data()

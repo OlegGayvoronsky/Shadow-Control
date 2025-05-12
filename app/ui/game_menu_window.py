@@ -11,9 +11,7 @@ from PySide6.QtCore import Qt, QSize, Property, QPropertyAnimation, QEasingCurve
 import os
 import json
 import subprocess
-from ui.add_game_dialog import AddGameDialog
-from ui.collect_data_dialog import CollectDataDialog
-from logic.data_collector import DataCollectionWindow
+
 
 class AnimatedButton(QPushButton):
     def __init__(self, *args, **kwargs):
@@ -388,6 +386,7 @@ class GameMenu(QWidget):
             QMessageBox.warning(self, "Ошибка", "Для продолжения нужно задать имя класса и клавишу для каждой настройки")
             return
 
+        from ui.collect_data_dialog import CollectDataDialog
         dialog = CollectDataDialog(self.settings_path)
         if dialog.exec():
             selected_classes = dialog.get_selected_classes()
@@ -396,6 +395,7 @@ class GameMenu(QWidget):
                 QMessageBox.warning(self, "Ошибка", "Нужно выбрать хотя бы один класс.")
                 return
 
+            from logic.data_collector import DataCollectionWindow
             self.data_collection_window = DataCollectionWindow(
                 data_path=self.global_game_folder / "VidData",
                 actions=selected_classes,
@@ -410,7 +410,31 @@ class GameMenu(QWidget):
     def prepare_model(self):
         if not os.path.exists(self.global_game_folder / "VidData"):
             QMessageBox.information(self, "Подготовка модели", f"Сначала нужно собрать данные для каждого действия")
-        
+            return
+
+        actions = []
+        with open(self.settings_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            for idx, (action, keys) in enumerate(data.items()):
+                if idx > 7:
+                    actions.append(action)
+
+        name = "model_1"
+        if os.path.exists(self.global_game_folder / "checkpoints"):
+            number = len(os.listdir(self.global_game_folder / "checkpoints"))
+            name = "_".join([name.split("_")[0], f"{number + 1}"])
+
+        from logic.train_model import TrainingWindow
+        self.window = TrainingWindow(
+            train_name=name,
+            actions=actions,
+            game_path=self.global_game_folder,
+            sequence_length=30,
+            epochs=200,
+            num_classes=len(actions),
+            batch_size=32
+        )
+        self.window.show()
 
     def add_setting_row(self, action_name="", key_binding=""):
         row_widget = QWidget()
@@ -484,17 +508,21 @@ class GameMenu(QWidget):
                     self.add_setting_row(action, keys)
 
     def launch_game(self):
-        exe_path = self.game_data.get("exe", "")
-        if os.path.exists(exe_path):
-            subprocess.Popen([exe_path])
-        else:
-            print(f"Не найден exe: {exe_path}")
+        models = [file.name for file in self.global_game_folder / "checkpoints".iterdir() if d.is_dir()]
+        exe_files = ["game.exe", "game_debug.exe", "game_release.exe"]
+
+        dialog = LaunchGameDialog(models, exe_files)
+        if dialog.exec():
+            model, exe = dialog.get_selection()
+            print("Выбрана модель:", model)
+            print("Выбран exe-файл:", exe)
 
     def open_edit_dialog(self):
         if self.game_data.get("appid") != -1:
             QMessageBox.warning(self, "Ошибка", "Нельзя изменить параметры игр из Steam")
             return
 
+        from ui.add_game_dialog import AddGameDialog
         dialog = AddGameDialog("Изменить параметры игры", self.game_data)
         if dialog.exec():
             game_data = dialog.get_data()
