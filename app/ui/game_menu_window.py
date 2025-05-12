@@ -12,6 +12,8 @@ import os
 import json
 import subprocess
 
+from logic.game_control import GameController
+
 
 class AnimatedButton(QPushButton):
     def __init__(self, *args, **kwargs):
@@ -205,6 +207,7 @@ class GameMenu(QWidget):
         self.game_data = game_data
         self.game_folder = game_folder
         self.global_game_folder = Path(__file__).resolve().parent.parent / game_folder
+        self.run_model_pth = Path(__file__).resolve().parent.parent / "run_model"
         self.settings_path = os.path.join(str(self.global_game_folder), "settings.json").replace("\\", "/")
         if os.path.exists(self.settings_path):
             with open(self.settings_path, "r", encoding="utf-8") as f:
@@ -508,14 +511,39 @@ class GameMenu(QWidget):
                     self.add_setting_row(action, keys)
 
     def launch_game(self):
-        models = [file.name for file in self.global_game_folder / "checkpoints".iterdir() if d.is_dir()]
-        exe_files = ["game.exe", "game_debug.exe", "game_release.exe"]
+        if not os.path.exists(self.global_game_folder / "checkpoints"):
+            QMessageBox.information(self, "Запуск игры", "Сперва нужно подготовить модель")
+            return
 
+        models = [file.name for file in (self.global_game_folder / "checkpoints").iterdir() if file.is_dir()]
+        exe_files = [Path(exe).name for exe in self.game_data.get("exe")]
+
+        from ui.launch_game_dialog import LaunchGameDialog
         dialog = LaunchGameDialog(models, exe_files)
+
         if dialog.exec():
             model, exe = dialog.get_selection()
-            print("Выбрана модель:", model)
-            print("Выбран exe-файл:", exe)
+            for ef in self.game_data.get("exe"):
+                if Path(ef).name == exe:
+                    exe = ef
+                    break
+
+            self.controller = GameController(model_path=(self.global_game_folder / "checkpoints" / model / "best_model.pth"),
+                                             walk_model_path=self.run_model_pth / "model_1" / "best_model.pth")
+
+            # Подключаем сигналы для обновления UI
+            self.controller.update_frame_signal.connect(self.update_frame)
+            self.controller.update_fps_signal.connect(self.update_fps)
+
+            # Создаем и отображаем GameWindow
+            self.game_window = GameWindow(self.controller)  # передаем controller в GameWindow
+            self.game_window.show()
+
+            # Запускаем фоновый процесс
+            self.controller.start()
+
+            # Если нужно, можно мониторить завершение процесса игры
+            self.monitor_game(exe)
 
     def open_edit_dialog(self):
         if self.game_data.get("appid") != -1:

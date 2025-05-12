@@ -2,7 +2,7 @@ from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QLabel, QPushButton,
     QHBoxLayout, QComboBox
 )
-from PySide6.QtGui import QFont
+from PySide6.QtGui import QFont, QLinearGradient, QPalette, QColor, QBrush
 from PySide6.QtCore import Qt, Signal
 
 
@@ -12,12 +12,12 @@ class LaunchGameDialog(QDialog):
 
     def __init__(self, models: list[str], exe_files: list[str]):
         super().__init__()
-        self.setWindowTitle("Запуск игры")
+        self.setWindowFlags(Qt.FramelessWindowHint | Qt.Dialog)
         self.setMinimumSize(500, 300)
         self.setStyleSheet("""
             QDialog {
                 background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
-                              stop:0 #1a1a2e, stop:1 #4a00e0);
+                              stop:0 #0f0f0f, stop:1 #1a1a2e);
                 color: white;
             }
             QLabel {
@@ -39,7 +39,7 @@ class LaunchGameDialog(QDialog):
                 border-radius: 5px;
             }
             QPushButton:hover {
-                background-color: #9b7df0;
+                background-color: #6C1DB1;
             }
         """)
 
@@ -76,6 +76,18 @@ class LaunchGameDialog(QDialog):
         button_layout = QHBoxLayout()
         launch_btn = QPushButton("Готово")
         cancel_btn = QPushButton("Отмена")
+        cancel_btn.setStyleSheet("""
+            QPushButton {
+                background-color: #6b7280;
+                color: white;
+                border: none;
+                border-radius: 8px;
+                padding: 8px 16px;
+            }
+            QPushButton:hover {
+                background-color: #4b5563;
+            }
+        """)
         launch_btn.clicked.connect(self.accept)
         cancel_btn.clicked.connect(self.reject)
         button_layout.addStretch()
@@ -85,6 +97,15 @@ class LaunchGameDialog(QDialog):
         layout.addLayout(button_layout)
 
         self.setLayout(layout)
+
+    def set_dark_gradient_background(self):
+        palette = QPalette()
+        gradient = QLinearGradient(0, 0, 0, self.height())
+        gradient.setColorAt(0.0, QColor("#0f0f0f"))
+        gradient.setColorAt(1.0, QColor("#1a1a2e"))
+        palette.setBrush(QPalette.Window, QBrush(gradient))
+        self.setAutoFillBackground(True)
+        self.setPalette(palette)
 
     def get_selection(self):
         model = self.model_combo.currentText()

@@ -215,7 +215,6 @@ class TrainingWindow(QWidget):
         self.close_button.move(self.width() - 40, 10)
         self.close_button.setVisible(False)
 
-        # Подключение сигналов тренера
         self.trainer = ActionModelTrainer(train_name, actions, game_path, sequence_length, epochs, num_classes,
                                           batch_size)
         self.trainer.data_progress.connect(self.update_data_progress)
