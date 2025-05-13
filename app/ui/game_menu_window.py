@@ -157,7 +157,7 @@ class KeyBindingLineEdit(QLineEdit):
         if key_str and key_str not in modifiers and key_str != "Control":
             modifiers.append(key_str)
 
-        self.setText(" + ".join(modifiers))
+        self.setText("+".join(modifiers))
         if self.recording_started:
             self.stopRecording()
 
@@ -182,7 +182,7 @@ class KeyBindingLineEdit(QLineEdit):
         elif button == Qt.MiddleButton:
             modifiers.append("Middle Click")
 
-        self.setText(" + ".join(modifiers))
+        self.setText("+".join(modifiers))
         if self.recording_started:
             self.stopRecording()
 
@@ -535,6 +535,8 @@ class GameMenu(QWidget):
                             walk_actions[action] = key
                         else:
                             actions[action] = key
+                    actions["Бездействие"] = ""
+                    walk_actions["Бездействие"] = ""
             else:
                 QMessageBox.information(self, "Запуск игры", "Отсутствуют настройки")
                 return
@@ -544,8 +546,8 @@ class GameMenu(QWidget):
                          exe_file=exe,
                          actions=actions,
                          walk_actions=walk_actions,
-                         action_model_path=self.global_game_folder / "checkpoints" / model / "best_model",
-                         walk_model_path=self.run_model_pth)
+                         action_model_path=self.global_game_folder / "checkpoints" / model / "best_model.pth",
+                         walk_model_path=self.run_model_pth / "model_1" / "best_model.pth")
 
     def open_edit_dialog(self):
         if self.game_data.get("appid") != -1:

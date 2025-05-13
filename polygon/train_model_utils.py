@@ -195,7 +195,7 @@ def predict(model, data, device):
         data = torch.from_numpy(data).float()
     data = data.to(device)
     pred = torch.sigmoid(model(data))
-    return (pred >= 0.8).int()
+    return (pred >= 0.7).int()
 
 
 def walk_predict(model, data, device):

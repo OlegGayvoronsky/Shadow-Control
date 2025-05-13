@@ -36,6 +36,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(device)
 
 model = LSTMModel(33*4, hidden_dim=128, output_dim=num_classes).to(device)
+
 model.load_state_dict(torch.load("checkpoints/14experiment_add_more_data100/best_model.pth"))
 model.eval()
 
