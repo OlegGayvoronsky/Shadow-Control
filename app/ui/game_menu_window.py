@@ -10,9 +10,6 @@ from PySide6.QtGui import QPixmap, QIcon, QCursor, QColor, QEnterEvent, QPainter
 from PySide6.QtCore import Qt, QSize, Property, QPropertyAnimation, QEasingCurve
 import os
 import json
-import subprocess
-
-from logic.game_control import GameController
 
 
 class AnimatedButton(QPushButton):
@@ -528,22 +525,27 @@ class GameMenu(QWidget):
                     exe = ef
                     break
 
-            self.controller = GameController(model_path=(self.global_game_folder / "checkpoints" / model / "best_model.pth"),
-                                             walk_model_path=self.run_model_pth / "model_1" / "best_model.pth")
+            if os.path.exists(self.settings_path):
+                with open(self.settings_path, "r", encoding="utf-8") as f:
+                    data = json.load(f)
+                    actions = {}
+                    walk_actions = {}
+                    for i, (action, key) in enumerate(data.items()):
+                        if i <= 7:
+                            walk_actions[action] = key
+                        else:
+                            actions[action] = key
+            else:
+                QMessageBox.information(self, "Запуск игры", "Отсутствуют настройки")
+                return
 
-            # Подключаем сигналы для обновления UI
-            self.controller.update_frame_signal.connect(self.update_frame)
-            self.controller.update_fps_signal.connect(self.update_fps)
-
-            # Создаем и отображаем GameWindow
-            self.game_window = GameWindow(self.controller)  # передаем controller в GameWindow
-            self.game_window.show()
-
-            # Запускаем фоновый процесс
-            self.controller.start()
-
-            # Если нужно, можно мониторить завершение процесса игры
-            self.monitor_game(exe)
+            from logic.game_control import GameLauncher
+            self.gl = GameLauncher(parent_window=self,
+                         exe_file=exe,
+                         actions=actions,
+                         walk_actions=walk_actions,
+                         action_model_path=self.global_game_folder / "checkpoints" / model / "best_model",
+                         walk_model_path=self.run_model_pth)
 
     def open_edit_dialog(self):
         if self.game_data.get("appid") != -1:
