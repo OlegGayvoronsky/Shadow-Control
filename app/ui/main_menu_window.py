@@ -69,7 +69,6 @@ class MainMenu(QWidget):
         main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(20, 20, 20, 20)
 
-        # Верхняя панель
         top_bar = QHBoxLayout()
         self.games_label = QLabel("Игры: (0)")
         self.games_label.setStyleSheet("color: white; font-size: 18px; font-weight: bold;")

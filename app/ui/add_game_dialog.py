@@ -1,19 +1,20 @@
 from pathlib import Path
+import os
+import webbrowser
 
 from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QLabel, QLineEdit, QPushButton,
     QFileDialog, QHBoxLayout, QMessageBox
 )
-from PySide6.QtGui import QPixmap, QPainter, QLinearGradient, QColor, QFont, QImage
+from PySide6.QtGui import QPixmap, QPainter, QLinearGradient, QColor, QFont, QImage, QCursor
 from PySide6.QtCore import Qt, QSize
-import os
 
 
 class AddGameDialog(QDialog):
     def __init__(self, type, game=None):
         super().__init__()
         self.setWindowFlags(Qt.FramelessWindowHint | Qt.Dialog)
-        self.setFixedSize(400, 400)
+        self.setFixedSize(400, 420)
         self.setStyleSheet(self.load_styles())
         self._type = type
 
@@ -23,7 +24,6 @@ class AddGameDialog(QDialog):
 
         layout = QVBoxLayout()
 
-        # Путь до exe
         self.exe_input = QLineEdit()
         if game:
             self.exe_input.setText(game.get("exe", "")[0])
@@ -35,22 +35,18 @@ class AddGameDialog(QDialog):
         layout.addWidget(self.exe_input)
         layout.addWidget(exe_btn)
 
-        # Обложка
         cover_btn = QPushButton("Выбрать обложку")
         cover_btn.clicked.connect(lambda: self.choose_image("cover"))
         layout.addWidget(cover_btn)
 
-        # Логотип
         logo_btn = QPushButton("Выбрать логотип")
         logo_btn.clicked.connect(lambda: self.choose_image("logo"))
         layout.addWidget(logo_btn)
 
-        # Шапка
         hero_btn = QPushButton("Выбрать шапку")
         hero_btn.clicked.connect(lambda: self.choose_image("hero"))
         layout.addWidget(hero_btn)
 
-        # Кнопки управления
         button_layout = QHBoxLayout()
         add_btn = QPushButton("Добавить" if self._type == "Добавить игру" else "Изменить")
         cancel_btn = QPushButton("Отмена")
@@ -63,6 +59,14 @@ class AddGameDialog(QDialog):
         layout.addStretch()
         layout.addLayout(button_layout)
 
+        link_label = QLabel('<a href="https://www.steamgriddb.com">Изображения можно найти здесь</a>')
+        link_label.setObjectName("linkLabel")
+        link_label.setAlignment(Qt.AlignCenter)
+        link_label.setOpenExternalLinks(False)
+        link_label.setCursor(QCursor(Qt.PointingHandCursor))
+        link_label.linkActivated.connect(self.open_link)
+        layout.addWidget(link_label)
+
         self.setLayout(layout)
 
     def load_styles(self):
@@ -73,7 +77,7 @@ class AddGameDialog(QDialog):
             color: white;
             font-size: 14px;
         }
-    
+
         QLabel {
             font-weight: bold;
             color: #cfcfcf;
@@ -107,7 +111,23 @@ class AddGameDialog(QDialog):
         QPushButton#cancelBtn:hover {
             background-color: #666;
         }
-    """
+
+        QLabel:hover {
+            color: #a07ede;
+        }
+        QLabel#linkLabel {
+            color: #cfcfcf;
+            font-size: 13px;
+        }
+
+        QLabel#linkLabel:hover {
+            color: #7e22ce;
+            text-decoration: underline;
+        }
+        """
+
+    def open_link(self, link):
+        webbrowser.open(link)
 
     def choose_exe(self):
         file_path, _ = QFileDialog.getOpenFileName(self, "Выберите .exe файл", "", "Executable (*.exe)")
@@ -173,7 +193,6 @@ class AddGameDialog(QDialog):
             painter.drawText(image.rect(), Qt.AlignCenter, text)
         painter.end()
 
-        # Сохраняем изображение в temp
         temp_path = os.path.join(os.getcwd(), f"temp/temp_{image_type}_{text}{type.get(image_type)}")
         image.save(temp_path)
         return temp_path

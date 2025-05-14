@@ -88,7 +88,6 @@ class ActionModelTrainer(QThread):
         train_loader = DataLoader(train_dataset, batch_size=self.batch_size, shuffle=True)
         val_loader = DataLoader(val_dataset, batch_size=self.batch_size, shuffle=False)
 
-        # === Обучение модели ===
         writer = SummaryWriter(log_dir=self.log_dir)
         best_val_loss = float("inf")
 
