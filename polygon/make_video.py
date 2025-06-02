@@ -144,11 +144,10 @@ def make_test_video(data_path):
 if __name__ == "__main__":
     mode = 1
     if mode == 1:
-        DATA_PATH = os.path.join('VidData_run')
+        DATA_PATH = os.path.join('VidData_head')
         os.makedirs(DATA_PATH, exist_ok=True)
 
-        actions = np.array(["walk forward", "walk backward", "walk left", "walk right", "run forward",
-                            "run backward"])
+        actions = np.array(["Left", "Right", "Up", "Down", "Left+Up", "Left+Down", "Right+Up", "Right+Down"])
         no_sequences = 50
         sequence_length = 30
         start_folder = 101

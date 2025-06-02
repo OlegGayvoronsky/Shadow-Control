@@ -532,11 +532,11 @@ class GameMenu(QWidget):
                     walk_actions = {}
                     for i, (action, key) in enumerate(data.items()):
                         if i <= 7:
-                            walk_actions[action] = key
+                            walk_actions[action] = [key, False]
                         else:
-                            actions[action] = key
-                    actions["Бездействие"] = ""
-                    walk_actions["Бездействие"] = ""
+                            actions[action] = [key, False]
+                    actions["Бездействие"] = ["", True]
+                    walk_actions["Бездействие"] = ["", True]
             else:
                 QMessageBox.information(self, "Запуск игры", "Отсутствуют настройки")
                 return

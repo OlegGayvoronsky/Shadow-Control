@@ -1,6 +1,6 @@
 import os
 import subprocess
-
+from math import acos, degrees
 import cv2
 import numpy as np
 from PySide6.QtCore import QThread, Signal, Qt, QSize
@@ -59,44 +59,142 @@ class GameController(QThread):
         model.eval()
         return model
 
-    def press_combination(self, combo: str):
-        if not combo:
-            return
+    def press_combination(self, combo, mode):
         keys = combo.lower().split('+')
-
         for key in keys:
-            pdi.keyDown(key)
-        time.sleep(0.05)
-        for key in reversed(keys):
-            pdi.keyUp(key)
+            if mode:
+                pdi.keyDown(key)
+            else:
+                pdi.keyUp(key)
 
-    def press_mouse(self, button_name: str):
-        if button_name == 'left click':
-            pdi.mouseDown(button='left')
-            pdi.mouseUp(button='left')
-        elif button_name == 'right click':
-            pdi.mouseDown(button='right')
-            pdi.mouseUp(button='right')
+    def press_mouse(self, button_name, mode):
+        if mode:
+            pdi.mouseDown(button=button_name.split()[0])
+        else:
+            pdi.mouseUp(button=button_name.split()[0])
 
     def handle_prediction(self, action_res, walk_res):
         pred = torch.where(action_res == 1)[0].cpu().tolist()
         walk_pred = walk_res
+        if(len(walk_pred) == 0 or len(pred) == 0):
+            return
 
-        if len(walk_pred) > 0:
-            walk_action = self.invers_walk_label_map[walk_pred[0]]
-            walk_key = self.walk_actions.get(walk_action).lower()
-            if walk_key and walk_key != "":
-                self.press_combination(walk_key)
+        walk_action = self.invers_walk_label_map[walk_pred[0]]
+        for w_act in self.walk_actions:
+            if(w_act == "Бездействие" or w_act == "Прыжок" or w_act == "Сесть"):
+                continue
+            walk_key = self.walk_actions[w_act][0].lower()
+            flag = self.walk_actions[w_act][1]
+            mode = True if (w_act == walk_action) else False
+            if flag != mode:
+                self.walk_actions[w_act][1] = mode
+                self.press_combination(walk_key, mode)
 
-        for p in pred:
-            action = self.invers_label_map[p]
-            key = self.actions.get(action).lower()
-            if key in ['left click', 'right click']:
-                self.press_mouse(key)
-            elif key != "":
-                self.press_combination(key)
+        drop_flags = self.label_map["Бездействие"] in pred
+        for act in self.actions:
+            if (act == "Бездействие"):
+                continue
+            key = self.actions[act][0].lower()
+            flag = self.actions[act][1]
+            mode = True if (self.label_map[act] in pred and not drop_flags) else False
+            if flag != mode:
+                self.actions[act][1] = mode
+                if key in ['left click', 'right click']:
+                    self.press_mouse(key, mode)
+                else:
+                    self.press_combination(key, mode)
+
+    def move_mouse_by_head_angles(self, vertical_angle, horizontal_angle, sens=0.1):
+        # Центрируем углы
+        vertical_angle -= 100
+        horizontal_angle -= 87
+
+        # Мёртвая зона
+        if abs(horizontal_angle) < 10:
+            horizontal_angle = 0
+        else:
+            horizontal_angle = 10 * horizontal_angle / abs(horizontal_angle)
+        if abs(vertical_angle) < 10:
+            vertical_angle = 0
+        else:
+            vertical_angle = 10 * vertical_angle / abs(vertical_angle)
+
+        # Смещения по осям
+        dx = int(horizontal_angle * sens)
+        dy = int(vertical_angle * sens)
+
+        # Плавное движение мыши
+        pdi.moveRel(round(dx), 0)
+
+
+    def is_jump_or_sit(self, distances, points):
+        jump = False
+        sit = False
+        f1 = -(points[-1].y - points[0].y) > 0.1
+        f2 = abs(distances[-1] - distances[0]) <= 0.01
+        if f1 and f2:
+            jump = True
+
+        if distances[-1] < 0.46:
+            sit = True
+        return jump, sit
+
+    def algebra_calculate(self, results, points, distances):
+        x = np.array([1, 0, 0])
+        z = np.array([0, 0, 1])
+        landmarks = results.pose_world_landmarks.landmark
+        x_vals = [-lm.x for lm in landmarks]
+        z_vals = [-lm.y for lm in landmarks]
+        y_vals = [-lm.z for lm in landmarks]
+
+        # 2d токи носа
+        points.append(results.pose_landmarks.landmark[11])
+        points = points[-20:]
+
+        # 3d токи
+        nose = np.array([x_vals[0], y_vals[0], z_vals[0]])
+        l_ear = np.array([x_vals[7], y_vals[7], z_vals[7]])
+        r_ear = np.array([x_vals[8], y_vals[8], z_vals[8]])
+        l_sh = np.array([x_vals[11], y_vals[11], z_vals[11]])
+        r_sh = np.array([x_vals[12], y_vals[12], z_vals[12]])
+        l_hip = np.array([x_vals[23], y_vals[23], z_vals[23]])
+        r_hip = np.array([x_vals[24], y_vals[24], z_vals[24]])
+
+        distance = (l_sh + r_sh) / 2 - (l_hip + r_hip) / 2
+        distance[1] = 0
+        distance = np.linalg.norm(distance)
+        distances.append(distance)
+        distances = distances[-20:]
+
+        spine = (l_sh + r_sh) / 2 - (l_hip + r_hip) / 2
+        spine[1] = 0
+        norms = np.linalg.norm(spine)
+        if norms != 0: spine /= norms
+
+        head = (l_ear + r_ear) / 2
+        vision1, vision2 = nose - head, nose - head
+        vision1[0] = 0
+        vision2[2] = 0
+        norm1 = np.linalg.norm(vision1)
+        norm2 = np.linalg.norm(vision2)
+        if norm1 != 0: vision1 /= norm1
+        if norm2 != 0: vision2 /= norm2
+        angle1 = degrees(acos(vision1 @ z))
+        angle2 = degrees(acos(vision2 @ x))
+        if abs(degrees(acos(spine @ z))) > 3:
+            angle1 = 100
+            angle2 = 87
+        return points, distances, angle1, angle2
+
 
     def run(self):
+        jump = False
+        sit = False
+        points = []
+        distances = []
+
+        pred = []
+        walk_pred = []
         while not self._stop_event:
             while self.paused:
                 time.sleep(0.1)
@@ -114,6 +212,18 @@ class GameController(QThread):
             self.drawing.draw_landmarks(frame, results.pose_landmarks, self.mp_connections)
             keypoints = extract_keypoints(results)
             self.sequence.append(keypoints)
+            points, distances, angle1, angle2 = self.algebra_calculate(results, points, distances)
+
+            if len(distances) == 20:
+                jump, sit = self.is_jump_or_sit(distances, points)
+                f_jump = self.walk_actions["Прыжок"][1]
+                f_sit = self.walk_actions["Сесть"][1]
+                if(jump != f_jump):
+                    self.walk_actions["Прыжок"][1] = jump
+                    self.press_combination(self.walk_actions["Прыжок"][0], jump)
+                if (sit != f_sit):
+                    self.walk_actions["Сесть"][1] = sit
+                    self.press_combination(self.walk_actions["Сесть"][0], sit)
 
             if len(self.sequence) == 30:
                 with torch.no_grad():
@@ -121,23 +231,32 @@ class GameController(QThread):
                     walk_res = self.walk_predict(np.expand_dims(self.sequence, axis=0))
 
                 self.handle_prediction(action_res, walk_res)
-                self.sequence = self.sequence[-20:]
                 pred = torch.where(action_res == 1)[0].cpu().tolist()
                 walk_pred = walk_res
                 self.sequence = self.sequence[-20:]
 
-                for i, lbl in enumerate(pred):
-                    label_name = self.invers_label_map[lbl]
-                    cv2.putText(frame, f"{label_name}", (0, 100 + 200 * i),
-                                cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 255, 0), 2)
+            self.move_mouse_by_head_angles(angle1, angle2)
 
-                if results.pose_landmarks:
-                    point = results.pose_landmarks.landmark[23]
-                    h, w, _ = frame.shape
-                    x, y = int(point.x * w), int(point.y * h)
-                    walk_label = self.invers_walk_label_map[walk_pred[0]]
-                    cv2.putText(frame, f"{walk_label}", (x, y),
-                                cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 255, 0), 2)
+            for i, lbl in enumerate(pred):
+                label_name = self.invers_label_map[lbl]
+                cv2.putText(frame, f"{label_name}", (0, 100 + 200 * i),
+                            cv2.FONT_HERSHEY_COMPLEX, 2, (0, 255, 0), 2)
+
+            if results.pose_landmarks:
+                point = results.pose_landmarks.landmark[23]
+                h, w, _ = frame.shape
+                x, y = int(point.x * w), int(point.y * h)
+                jp = results.pose_landmarks.landmark[11]
+                sp = results.pose_landmarks.landmark[12]
+                jx, sx = int(jp.x * w), int(sp.x * w)
+                jy, sy = int(jp.y * h), int(sp.y * h)
+                cv2.putText(frame, f"j: {jump}", (jx, jy),
+                            cv2.FONT_HERSHEY_COMPLEX, 2, (0, 255, 0), 2)
+                cv2.putText(frame, f"s: {sit}", (sx, sy),
+                            cv2.FONT_HERSHEY_COMPLEX, 2, (0, 0, 255), 2)
+                walk_label = self.invers_walk_label_map[walk_pred[0]] if len(walk_pred) > 0 else ""
+                cv2.putText(frame, f"{walk_label}", (x, y),
+                            cv2.FONT_HERSHEY_COMPLEX, 2, (0, 255, 0), 2)
 
             curr_time = time.time()
             fps = 1 / (curr_time - self.prev_time)
