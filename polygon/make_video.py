@@ -12,8 +12,7 @@ from train_model_utils import extract_keypoints
 mp_pose = mp.solutions.pose
 pose = mp_pose.Pose(
     static_image_mode=False,
-    model_complexity=0,
-    smooth_landmarks=False,
+    model_complexity=1,
     enable_segmentation=False,
     min_detection_confidence=0.5,
     min_tracking_confidence=0.7
@@ -59,7 +58,7 @@ def setup_folders(DATA_PATH, actions, no_sequences):
 #         sequence_loop.close()
 
 
-def collect_keypoints(actions, start_folder, no_sequences, DATA_PATH):
+def collect_keypoints(actions, start_folder, no_sequences, DATA_PATH, type):
     cap = cv2.VideoCapture(1, cv2.CAP_DSHOW)
     for action in actions:
         i = 0
@@ -71,9 +70,9 @@ def collect_keypoints(actions, start_folder, no_sequences, DATA_PATH):
                 ret, frame = cap.read()
                 if frame_num == 0:
                     cv2.putText(frame, '{}'.format(action), (0, 320),
-                        cv2.FONT_HERSHEY_SIMPLEX, 2, (150, 224, 0), 4, cv2.LINE_AA)
+                        cv2.FONT_HERSHEY_COMPLEX, 2, (150, 224, 0), 4, cv2.LINE_AA)
                     cv2.putText(frame, '{}/{}'.format(sequence, start_folder + no_sequences), (30, 30),
-                        cv2.FONT_HERSHEY_SIMPLEX, 1, (150, 224, 0), 4, cv2.LINE_AA)
+                        cv2.FONT_HERSHEY_COMPLEX, 1, (150, 224, 0), 4, cv2.LINE_AA)
                     cv2.imshow("Pose Detection", frame)
                     if i == 1:
                         cv2.waitKey(0)
@@ -90,10 +89,10 @@ def collect_keypoints(actions, start_folder, no_sequences, DATA_PATH):
                 video_writer.write(frame)
 
                 cv2.putText(frame, '{}/{}'.format(sequence, no_sequences), (30, 30),
-                            cv2.FONT_HERSHEY_SIMPLEX, 1, (150, 224, 0), 4, cv2.LINE_AA)
+                            cv2.FONT_HERSHEY_COMPLEX, 1, (150, 224, 0), 4, cv2.LINE_AA)
                 cv2.imshow("Pose Detection", frame)
 
-                keypoints = extract_keypoints(results)
+                keypoints = extract_keypoints(results, type)
                 npy_path = os.path.join(DATA_PATH, action, str(sequence), str(frame_num) + "_3d")
                 np.save(npy_path, keypoints)
 
@@ -144,16 +143,16 @@ def make_test_video(data_path):
 if __name__ == "__main__":
     mode = 1
     if mode == 1:
-        DATA_PATH = os.path.join('VidData_head')
+        DATA_PATH = os.path.join('VidData_run')
         os.makedirs(DATA_PATH, exist_ok=True)
 
-        actions = np.array(["Left", "Right", "Up", "Down", "Left+Up", "Left+Down", "Right+Up", "Right+Down"])
-        no_sequences = 50
+        actions = np.array(["Ходьба вперед", "Ходьба назад", "Ходьба влево", "Ходьба вправо", "Бег вперед", "Бездействие"])
+        no_sequences = 100
         sequence_length = 30
-        start_folder = 101
+        start_folder = 1
 
         setup_folders(DATA_PATH, actions, no_sequences)
-        collect_keypoints(actions, start_folder, no_sequences, DATA_PATH)
+        collect_keypoints(actions, start_folder, no_sequences, DATA_PATH, 1)
     elif mode == 2:
         DATA_PATH = os.path.join('TestData')
         make_test_video(DATA_PATH)

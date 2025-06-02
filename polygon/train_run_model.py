@@ -12,11 +12,17 @@ from train_model_utils import ActionDataset, LSTMModel, data_load_and_separate, 
 
 if __name__ == "__main__":
     DATA_PATH = 'VidData_run'
-    log_dir = f"runs/run_model_experiment_{datetime.now().strftime('%Y%m%d-%H%M%S')}"
-    best_model_path = f"checkpoints/run_model_experiment_{datetime.now().strftime('%Y%m%d-%H%M%S')}"
+    log_dir = f"runs/run_model_experiment_global3"
+    best_model_path = f"checkpoints/run_model_experiment_global3"
     os.makedirs(best_model_path, exist_ok=True)
+    non_arm_indices = [
+        0,
+        1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+        11, 12,
+        23, 24, 25, 26, 27, 28, 29, 30, 31, 32
+    ]
     SEQUENCE_LENGTH = 30
-    INPUT_DIM = 33*4
+    INPUT_DIM = len(non_arm_indices)*4
     BATCH_SIZE = 32
     EPOCHS = 2000
     LEARNING_RATE = 0.001
@@ -24,12 +30,12 @@ if __name__ == "__main__":
     print(device)
 
     # Действия
-    actions = np.array(["walk forward", "walk backward", "walk left", "walk right", "run forward",
-                            "run backward", "sit", "nothing"])
+    actions = np.array(["Ходьба вперед", "Ходьба назад", "Ходьба влево", "Ходьба вправо", "Бег вперед", "Бездействие"])
     label_map = {action: idx for idx, action in enumerate(actions)}
+    invers_label_map = {idx: action for idx, action in enumerate(actions)}
     num_classes = len(actions)
 
-    X_train, X_test, y_train, y_test = data_load_and_separate(actions, DATA_PATH, SEQUENCE_LENGTH, label_map, num_classes)
+    X_train, X_test, y_train, y_test = data_load_and_separate(actions, DATA_PATH, SEQUENCE_LENGTH, label_map, invers_label_map, num_classes)
 
     train_dataset = ActionDataset(X_train, y_train)
     test_dataset = ActionDataset(X_test, y_test)

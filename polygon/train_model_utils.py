@@ -23,87 +23,62 @@ class ActionDataset(Dataset):
         return self.X[idx], self.y[idx]
 
 
-# Определение модели
 class LSTMModel(nn.Module):
-    def __init__(self, input_dim, hidden_dim, output_dim, num_layers=3):
+    def __init__(self, input_dim, hidden_dim, output_dim, num_layers=2, dropout=0.3):
         super(LSTMModel, self).__init__()
-        self.lstm = nn.LSTM(input_dim, hidden_dim, num_layers, batch_first=True)
+        self.lstm = nn.LSTM(input_dim, hidden_dim, num_layers,
+                            batch_first=True, dropout=dropout if num_layers > 1 else 0)
 
         self.fc1 = nn.Linear(hidden_dim, 64)
         self.fc2 = nn.Linear(64, 32)
         self.fc3 = nn.Linear(32, output_dim)
 
         self.relu = nn.ReLU()
+        self.dropout = nn.Dropout(dropout)
 
     def forward(self, x):
         lstm_out, _ = self.lstm(x)
-        x = self.relu(self.fc1(lstm_out[:, -1, :]))
-        x = self.relu(self.fc2(x))
+        x = lstm_out[:, -1, :]  # последний временной шаг
+        x = self.dropout(self.relu(self.fc1(x)))
+        x = self.dropout(self.relu(self.fc2(x)))
         x = self.fc3(x)
         return x
 
 
-def extract_keypoints(results):
-    pose = np.array([[(-res.x + 1) / 2, (-res.y + 1) / 2, (-res.z + 1) / 2, res.visibility] for res in results.pose_landmarks.landmark]).flatten() if results.pose_landmarks else np.zeros(33*4)
+def extract_keypoints(results, type):
+    non_arm_indices = [
+        0,
+        1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+        11, 12,
+        23, 24, 25, 26, 27, 28, 29, 30, 31, 32
+    ]
+    if results.pose_landmarks:
+        landmarks = results.pose_landmarks.landmark
+
+        if type == 1:
+            # Используем все 33 точки
+            pose = np.array([
+                [(-res.x + 1) / 2, (-res.y + 1) / 2, (-res.z + 1) / 2, res.visibility]
+                for res in landmarks
+            ]).flatten()
+
+        elif type == 2:
+            pose = np.array([
+                [(-landmarks[i].x + 1) / 2, (-landmarks[i].y + 1) / 2, (-landmarks[i].z + 1) / 2, landmarks[i].visibility]
+                for i in non_arm_indices
+            ]).flatten()
+    else:
+        # В зависимости от типа подставляем размер нуля
+        if type == 1:
+            pose = np.zeros(33 * 4)
+        else:
+            pose = np.zeros(len(non_arm_indices) * 4)
+
     return pose
 
 
-def data_load_and_separate(actions, DATA_PATH, SEQUENCE_LENGTH, label_map, num_classes):
-    # def get_shifts(label, window, lshift, rshift):
-    #     windows, labels = [], []
-    #     intervals = np.linspace(lshift, rshift, 21)
-    #     for i in range(20):
-    #         shift = random.uniform(intervals[i], intervals[i + 1])
-    #         aug_window = window.copy()
-    #         aug_window[:, ::4][aug_window[:, ::4] > 0] += shift
-    #         aug_window[((aug_window[:, ::4] < 0) | (aug_window[:, ::4] > 1)).repeat(4, axis=1)] = 0
-    #         windows.append(aug_window)
-    #         labels.append(label)
-    #     return windows, labels
 
-    # def show_cadr(wdfs, lbls):
-    #     i = 0
-    #     lbl = np.where(lbls[0] == 1)[0][0]
-    #     while True:
-    #         if i == 30:
-    #             break
-    #
-    #         frame = np.zeros((480, 640, 3))
-    #         landmarks = wdfs[:, i]  # точки для выбранного кадра
-    #         i += 1
-    #
-    #         # предполагаем, что координаты нормализованы в диапазоне [0, 1], нужно перевести в пиксели
-    #         h, w, _ = frame.shape
-    #         landmarks = landmarks.reshape(20, 33, 4)
-    #         for j in range(20):
-    #             for point in landmarks[j]:
-    #                 x, y, z, c = point
-    #                 px = int(x * w)
-    #                 py = int(y * h)
-    #                 cv2.circle(frame, (px, py), 3, (0, 255, 0), -1)
-    #
-    #         # показать изображение
-    #         cv2.imshow(f"{lbl}", frame)
-    #         if cv2.waitKey(1) & 0xFF == ord('q'):
-    #             break
-    #
-    #     cv2.destroyAllWindows()
-
-    # def get_aug(X, y):
-    #     X_aug, y_aug = [], []
-    #     for window, label in zip(X, y):
-    #         X_aug.append(window)
-    #         y_aug.append(label)
-    #
-    #         left_board, right_board = (np.min(window[:, 0][window[:, 0] != 0]) if len(window[:, 0][window[:, 0] != 0]) > 0 else 0,
-    #                                    np.max(window[:, 0]))
-    #
-    #         windows, labels = get_shifts(label, np.array(window), 0 - left_board, 1 - right_board)
-    #         show_cadr(np.array(windows), labels)
-    #         X_aug.extend(windows)
-    #         y_aug.extend(labels)
-    #     return np.array(X_aug), np.array(y_aug)
-
+def data_load_and_separate(actions, DATA_PATH, SEQUENCE_LENGTH, label_map, inverse_label_map, num_classes):
     sequences, labels = [], []
 
     action_loop = tqdm(actions, desc="action loop", leave=False)
@@ -116,18 +91,27 @@ def data_load_and_separate(actions, DATA_PATH, SEQUENCE_LENGTH, label_map, num_c
                 res = np.load(os.path.join(DATA_PATH, action, str(sequence), f"{frame_num}_3d.npy"))
                 window.append(res)
             sequences.append(window)
-            labels.append(label_map[action])
+            labels.append(np.zeros(num_classes))
+            for lbl in action.split(" + "):
+                labels[-1][label_map[lbl]] = 1
 
             frame_loop.close()
         sequence_loop.close()
 
     X = np.array(sequences)
-    y = np.zeros((len(labels), num_classes))
-    for i in range(len(labels)):
-        y[i][labels[i]] = 1
+    y = np.array(labels)
 
     X, y = shuffle(X, y, random_state=42)
-    X_train, y_train, X_test, y_test = iterative_train_test_split(X, y, test_size=0.05)
+    X_train, y_train, X_test, y_test = iterative_train_test_split(X, y, test_size=0.1)
+
+    stat = dict()
+    for yt in y_test:
+        ln = []
+        for i in range(len(yt)):
+            if(yt[i] == 1): ln.append(inverse_label_map[i])
+        sn = " + ".join(ln)
+        stat[sn] = stat.get(sn, 0) + 1
+    print(stat)
 
     X_train, X_test = torch.tensor(X_train, dtype=torch.float32), torch.tensor(X_test, dtype=torch.float32)
     y_train, y_test = torch.tensor(y_train, dtype=torch.float32), torch.tensor(y_test, dtype=torch.float32)
@@ -170,7 +154,7 @@ def train_loop(EPOCHS, model, train_loader, val_loader, device, optimizer, crite
                 total_val_loss += val_loss.item()
 
                 val_outputs = torch.sigmoid(val_outputs)
-                y_pred_bin = (val_outputs > 0.7).int()
+                y_pred_bin = (val_outputs > 0.8).int()
                 acc = accuracy(y_pred_bin, y_val)
                 total_accuracy += acc.item()
 
@@ -195,7 +179,7 @@ def predict(model, data, device):
         data = torch.from_numpy(data).float()
     data = data.to(device)
     pred = torch.sigmoid(model(data))
-    return (pred >= 0.7).int()
+    return (pred >= 0.8).int()
 
 
 def walk_predict(model, data, device):

@@ -12,8 +12,8 @@ from train_model_utils import ActionDataset, LSTMModel, data_load_and_separate, 
 
 if __name__ == "__main__":
     DATA_PATH = 'VidData'
-    log_dir = f"runs/experiment_{datetime.now().strftime('%Y%m%d-%H%M%S')}"
-    best_model_path = f"checkpoints/experiment_{datetime.now().strftime('%Y%m%d-%H%M%S')}"
+    log_dir = f"runs/experiment_global3.2"
+    best_model_path = f"checkpoints/experiment_global3.2"
     os.makedirs(best_model_path, exist_ok=True)
     SEQUENCE_LENGTH = 30
     INPUT_DIM = 33*4
@@ -24,12 +24,39 @@ if __name__ == "__main__":
     print(device)
 
     # Действия
-    actions = np.array(
-        ["left weapon attack", "right weapon attack", "two-handed weapon attack", "shield block", "weapon block", "left attacking magic", "right attacking magic", "left use magic", "right use magic", "bowstring pull", "nothing"])
+    actions = np.array(["Удар левой"
+                        ,"Удар правой"
+                        ,"Двуручный удар"
+                        ,"Блок щитом"
+                        ,"Удар щитом"
+                        ,"Блок оружием"
+                        ,"Удар оружием"
+                        ,"Атака магией с левой руки"
+                        ,"Атака магией с правой руки"
+                        ,"Использование магии с левой руки"
+                        ,"Использование магии с правой руки"
+                        ,"Выстрел из лука"
+                        ,"Бездействие"])
+    directories = np.array(["Удар левой"
+                        ,"Удар правой"
+                        ,"Двуручный удар"
+                        ,"Блок щитом"
+                        ,"Удар щитом"
+                        ,"Блок оружием"
+                        ,"Удар оружием"
+                        ,"Атака магией с левой руки"
+                        ,"Атака магией с правой руки"
+                        ,"Атака магией с левой руки + Атака магией с правой руки"
+                        ,"Использование магии с левой руки"
+                        ,"Использование магии с правой руки"
+                        ,"Использование магии с правой руки + Использование магии с левой руки"
+                        ,"Выстрел из лука"
+                        ,"Бездействие"])
     label_map = {action: idx for idx, action in enumerate(actions)}
+    invers_label_map = {idx: action for idx, action in enumerate(actions)}
     num_classes = len(actions)
 
-    X_train, X_test, y_train, y_test = data_load_and_separate(actions, DATA_PATH, SEQUENCE_LENGTH, label_map, num_classes)
+    X_train, X_test, y_train, y_test = data_load_and_separate(directories, DATA_PATH, SEQUENCE_LENGTH, label_map, invers_label_map, num_classes, 1)
 
     train_dataset = ActionDataset(X_train, y_train)
     test_dataset = ActionDataset(X_test, y_test)
