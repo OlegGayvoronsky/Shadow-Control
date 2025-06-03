@@ -204,7 +204,7 @@ class GameMenu(QWidget):
         self.game_data = game_data
         self.game_folder = game_folder
         self.global_game_folder = Path(__file__).resolve().parent.parent / game_folder
-        self.run_model_pth = Path(__file__).resolve().parent.parent / "run_model"
+        self.run_turn_model_pth = Path(__file__).resolve().parent.parent / "run_turn_model"
         self.settings_path = os.path.join(str(self.global_game_folder), "settings.json").replace("\\", "/")
         if os.path.exists(self.settings_path):
             with open(self.settings_path, "r", encoding="utf-8") as f:
@@ -413,11 +413,12 @@ class GameMenu(QWidget):
             return
 
         actions = []
+        directories = []
         with open(self.settings_path, "r", encoding="utf-8") as f:
             data = json.load(f)
             for idx, (action, keys) in enumerate(data.items()):
-                if idx > 7:
-                    actions.append(action)
+                if idx > 7 and " + " not in action:
+                    directories.append(action)
 
         name = "model_1"
         if os.path.exists(self.global_game_folder / "checkpoints"):
@@ -428,9 +429,10 @@ class GameMenu(QWidget):
         self.window = TrainingWindow(
             train_name=name,
             actions=actions,
+            directories=directories,
             game_path=self.global_game_folder,
             sequence_length=30,
-            epochs=200,
+            epochs=2000,
             num_classes=len(actions),
             batch_size=32
         )
@@ -533,21 +535,25 @@ class GameMenu(QWidget):
                     for i, (action, key) in enumerate(data.items()):
                         if i <= 7:
                             walk_actions[action] = [key, False]
-                        else:
+                        elif " + " not in action:
                             actions[action] = [key, False]
                     actions["Бездействие"] = ["", True]
                     walk_actions["Бездействие"] = ["", True]
             else:
                 QMessageBox.information(self, "Запуск игры", "Отсутствуют настройки")
                 return
+            turn_actions = {"Поворот направо": ["", False], "Поворот налево": ["", False],
+                            "Поворот вверх": ["", False], "Поворот вниз": ["", False], "Бездействие": ["", True]}
 
             from logic.game_control import GameLauncher
             self.gl = GameLauncher(parent_window=self,
                          exe_file=exe,
                          actions=actions,
                          walk_actions=walk_actions,
+                         turn_actions=turn_actions,
                          action_model_path=self.global_game_folder / "checkpoints" / model / "best_model.pth",
-                         walk_model_path=self.run_model_pth / "model_1" / "best_model.pth")
+                         walk_model_path=self.run_turn_model_pth / "run_model2" / "best_model.pth",
+                         turn_model_path=self.run_turn_model_pth / "turn_model2" / "best_model.pth")
 
     def open_edit_dialog(self):
         if self.game_data.get("appid") != -1:

@@ -17,7 +17,7 @@ import pydirectinput as pdi
 class GameController(QThread):
     frame_signal = Signal(np.ndarray)
 
-    def __init__(self, actions, walk_actions, model_path, walk_model_path, camera_index):
+    def __init__(self, actions, walk_actions, turn_actions, model_path, walk_model_path, turn_model_path, camera_index):
         super().__init__()
         import mediapipe as mp
 
@@ -28,7 +28,7 @@ class GameController(QThread):
         self.mp_connections = mp.solutions.pose.POSE_CONNECTIONS
         self.pose = self.mp_pose.Pose(
             static_image_mode=False,
-            model_complexity=0,
+            model_complexity=1,
             smooth_landmarks=False,
             enable_segmentation=False,
             min_detection_confidence=0.5,
@@ -38,23 +38,28 @@ class GameController(QThread):
 
         self.actions = actions
         self.walk_actions = walk_actions
+        self.turn_actions = turn_actions
         self.label_map = {action: idx for idx, action in enumerate(self.actions.keys())}
         self.walk_label_map = {action: idx for idx, action in enumerate(self.walk_actions.keys())
                                if action != "Прыжок" and action != "Сесть"}
+        self.turn_label_map = {action: idx for idx, action in enumerate(self.turn_actions.keys())}
         self.walk_label_map["Бездействие"] = len(self.walk_label_map.keys()) - 1
         self.invers_label_map = {idx: action for idx, action in enumerate(self.actions.keys())}
         self.invers_walk_label_map = {idx: action for action, idx in self.walk_label_map.items()}
+        self.invers_turn_label_map = {idx: action for action, idx in self.turn_label_map.items()}
 
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.model = self.load_model(model_path, len(self.actions.keys()))
-        self.walk_model = self.load_model(walk_model_path, len(self.walk_actions.keys()) - 2)
+        self.model = self.load_model(model_path, len(self.actions.keys()), 33*4, 0.3)
+        self.walk_model = self.load_model(walk_model_path, len(self.walk_actions.keys()) - 2, 23*4, 0.1)
+        self.turn_model = self.load_model(turn_model_path, len(self.turn_actions.keys()), 23*4, 0.1)
         self.cap = cv2.VideoCapture(camera_index, cv2.CAP_DSHOW)
 
-        self.sequence = []
+        self.sequence1 = []
+        self.sequence2 = []
         self.prev_time = time.time()
 
-    def load_model(self, path, output_dim):
-        model = LSTMModel(33 * 4, hidden_dim=128, output_dim=output_dim).to(self.device)
+    def load_model(self, path, output_dim, input_dim, dropout):
+        model = LSTMModel(input_dim, hidden_dim=128, output_dim=output_dim, dropout=dropout).to(self.device)
         model.load_state_dict(torch.load(path, map_location=self.device))
         model.eval()
         return model
@@ -104,27 +109,32 @@ class GameController(QThread):
                 else:
                     self.press_combination(key, mode)
 
-    def move_mouse_by_head_angles(self, vertical_angle, horizontal_angle, sens=0.1):
-        # Центрируем углы
-        vertical_angle -= 100
-        horizontal_angle -= 87
 
-        # Мёртвая зона
-        if abs(horizontal_angle) < 10:
-            horizontal_angle = 0
-        else:
-            horizontal_angle = 10 * horizontal_angle / abs(horizontal_angle)
-        if abs(vertical_angle) < 10:
+    def move_mouse_by_head_angles(self, turn_pred, sens=0.1):
+        if (len(turn_pred) == 0):
+            return
+
+        walk_action = self.invers_turn_label_map[turn_pred[0]]
+        if walk_action == "Поворот направо":
+            horizontal_angle = 20
             vertical_angle = 0
+        elif walk_action == "Поворот налево":
+            horizontal_angle = -20
+            vertical_angle = 0
+        elif walk_action == "Поворот ввверх":
+            horizontal_angle = 0
+            vertical_angle = -20
+        elif walk_action == "Поворот вниз":
+            horizontal_angle = 0
+            vertical_angle = 20
         else:
-            vertical_angle = 10 * vertical_angle / abs(vertical_angle)
+            horizontal_angle = 0
+            vertical_angle = 0
 
-        # Смещения по осям
         dx = int(horizontal_angle * sens)
         dy = int(vertical_angle * sens)
 
-        # Плавное движение мыши
-        pdi.moveRel(round(dx), 0)
+        pdi.moveRel(round(dx), round(dy))
 
 
     def is_jump_or_sit(self, distances, points):
@@ -210,8 +220,10 @@ class GameController(QThread):
                 continue
 
             self.drawing.draw_landmarks(frame, results.pose_landmarks, self.mp_connections)
-            keypoints = extract_keypoints(results)
-            self.sequence.append(keypoints)
+            keypoints1 = extract_keypoints(results, 1)
+            keypoints2 = extract_keypoints(results, 2)
+            self.sequence.append(keypoints1)
+            self.sequence2.append(keypoints2)
             points, distances, angle1, angle2 = self.algebra_calculate(results, points, distances)
 
             if len(distances) == 20:
@@ -229,13 +241,13 @@ class GameController(QThread):
                 with torch.no_grad():
                     action_res = self.action_predict(np.expand_dims(self.sequence, axis=0))[0]
                     walk_res = self.walk_predict(np.expand_dims(self.sequence, axis=0))
+                    turn_res = self.turn_predict(np.expand_dims(self.sequence, axis=0))
 
                 self.handle_prediction(action_res, walk_res)
+                self.move_mouse_by_head_angles(turn_res)
                 pred = torch.where(action_res == 1)[0].cpu().tolist()
                 walk_pred = walk_res
                 self.sequence = self.sequence[-20:]
-
-            self.move_mouse_by_head_angles(angle1, angle2)
 
             for i, lbl in enumerate(pred):
                 label_name = self.invers_label_map[lbl]
@@ -281,9 +293,19 @@ class GameController(QThread):
         data = data.to(self.device)
         pred = torch.sigmoid(self.walk_model(data))[0]
         v, i = torch.max(pred, dim=0)
-        if v >= 0.8:
+        if v >= 0.9:
             return [i.item()]
-        return [6]
+        return [5]
+
+    def turn_predict(self, data):
+        if not isinstance(data, torch.Tensor):
+            data = torch.from_numpy(data).float()
+        data = data.to(self.device)
+        pred = torch.sigmoid(self.turn_model(data))[0]
+        v, i = torch.max(pred, dim=0)
+        if v >= 0.9:
+            return [i.item()]
+        return [4]
 
     def cleanup(self):
         self.cap.release()
@@ -303,19 +325,23 @@ class GameController(QThread):
 class ControllerThread(QThread):
     controller_ready = Signal()
 
-    def __init__(self, action_model_path, walk_model_path, actions, walk_actions):
+    def __init__(self, action_model_path, walk_model_path, turn_model_path, actions, walk_actions, turn_actions):
         super().__init__()
         self.action_model_path = action_model_path
         self.walk_model_path = walk_model_path
+        self.turn_model_path = turn_model_path
         self.actions = actions
         self.walk_actions = walk_actions
+        self.turn_actions = turn_actions
 
     def run(self):
         self.controller = GameController(
             model_path=self.action_model_path,
             walk_model_path=self.walk_model_path,
+            turn_model_path=self.turn_model_path,
             actions=self.actions,
             walk_actions=self.walk_actions,
+            turn_actions=self.turn_actions,
             camera_index=1
         )
         self.controller_ready.emit()
@@ -328,15 +354,17 @@ class ControllerThread(QThread):
         self.wait()
 
 class GameLauncher:
-    def __init__(self, parent_window, exe_file, actions, walk_actions, action_model_path, walk_model_path):
+    def __init__(self, parent_window, exe_file, actions, walk_actions, turn_actions, action_model_path, walk_model_path, turn_model_path):
         self.parent_window = parent_window
         self.exe_file = exe_file
         self.process = None
         self.camera_window = None
         self.controller_thread = ControllerThread(action_model_path=action_model_path,
                                                   walk_model_path=walk_model_path,
+                                                  turn_model_path=turn_model_path,
                                                   actions=actions,
-                                                  walk_actions=walk_actions)
+                                                  walk_actions=walk_actions,
+                                                  turn_actions=turn_actions)
         self.loading_window = LoadingWindow()
         self.launch_game()
         self.controller_thread.controller_ready.connect(self.on_controller_ready)

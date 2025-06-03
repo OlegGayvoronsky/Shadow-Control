@@ -32,7 +32,7 @@ class ActionModelTrainer(QThread):
     train_progress = Signal(int)
     training_finished = Signal()
 
-    def __init__(self, train_name, actions, game_path, sequence_length, epochs, num_classes, batch_size):
+    def __init__(self, train_name, actions, directories, game_path, sequence_length, epochs, num_classes, batch_size):
         super().__init__()
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.num_classes = num_classes
@@ -41,6 +41,7 @@ class ActionModelTrainer(QThread):
         self.criterion = nn.BCEWithLogitsLoss()
         self.accuracy_fn = Accuracy(task='multilabel', num_labels=num_classes).to(self.device)
         self.actions = np.array(actions) if actions else np.array([])
+        self.directories = np.array(directories) if directories else np.array([])
         self.sequence_length = sequence_length
         self.epochs = epochs
         self.label_map = {action: idx for idx, action in enumerate(actions)}
@@ -55,9 +56,9 @@ class ActionModelTrainer(QThread):
     def run(self):
         # === Загрузка данных ===
         sequences, labels = [], []
-        total_actions = len(self.actions)
+        total_actions = self.num_classes
 
-        for i, action in enumerate(self.actions):
+        for i, action in enumerate(self.directories):
             action_path = self.data_path / action
             sequence_ids = sorted(map(int, os.listdir(action_path)))
             for sequence in sequence_ids:
@@ -67,14 +68,14 @@ class ActionModelTrainer(QThread):
                     res = np.load(frame_path)
                     window.append(res)
                 sequences.append(window)
-                labels.append(self.label_map[action])
+                labels.append(np.zeros(total_actions))
+                for lbl in action.split(" + "):
+                    labels[-1][self.label_map[lbl]] = 1
             progress = int((i + 1) / total_actions * 100)
             self.data_progress.emit(progress)
 
         X = np.array(sequences)
-        y = np.zeros((len(labels), self.num_classes))
-        for i in range(len(labels)):
-            y[i][labels[i]] = 1
+        y = np.array(labels)
 
         X, y = shuffle(X, y, random_state=42)
         X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.05)
@@ -120,7 +121,7 @@ class ActionModelTrainer(QThread):
                     total_val_loss += val_loss.item()
 
                     val_outputs = torch.sigmoid(val_outputs)
-                    y_pred_bin = (val_outputs > 0.7).int()
+                    y_pred_bin = (val_outputs > 0.8).int()
                     acc = self.accuracy_fn(y_pred_bin, y_val)
                     total_accuracy += acc.item()
 
@@ -141,7 +142,7 @@ class ActionModelTrainer(QThread):
 
 
 class TrainingWindow(QWidget):
-    def __init__(self, train_name, actions, game_path, sequence_length, epochs, num_classes, batch_size):
+    def __init__(self, train_name, actions, directories, game_path, sequence_length, epochs, num_classes, batch_size):
         super().__init__()
         self.setWindowFlags(Qt.FramelessWindowHint | Qt.Dialog)
         self.setFixedSize(700, 400)
@@ -214,7 +215,7 @@ class TrainingWindow(QWidget):
         self.close_button.move(self.width() - 40, 10)
         self.close_button.setVisible(False)
 
-        self.trainer = ActionModelTrainer(train_name, actions, game_path, sequence_length, epochs, num_classes,
+        self.trainer = ActionModelTrainer(train_name, actions, directories, game_path, sequence_length, epochs, num_classes,
                                           batch_size)
         self.trainer.data_progress.connect(self.update_data_progress)
         self.trainer.train_progress.connect(self.update_train_progress)

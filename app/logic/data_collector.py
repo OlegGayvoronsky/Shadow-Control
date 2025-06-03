@@ -33,7 +33,7 @@ class DataCollectorThread(QThread):
         self.mp_pose = mp.solutions.pose
         self.pose = self.mp_pose.Pose(
             static_image_mode=False,
-            model_complexity=0,
+            model_complexity=1,
             smooth_landmarks=False,
             enable_segmentation=False,
             min_detection_confidence=0.5,
@@ -94,7 +94,7 @@ class DataCollectorThread(QThread):
                     video_writer.write(frame)
                     self.update_frame.emit(frame)
 
-                    keypoints = extract_keypoints(results)
+                    keypoints = extract_keypoints(results, 1)
                     npy_path = os.path.join(self.data_path, action, str(sequence), f"{frame_num}_3d")
                     np.save(npy_path, keypoints)
 
