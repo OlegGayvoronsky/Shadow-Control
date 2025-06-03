@@ -11,9 +11,9 @@ from train_model_utils import ActionDataset, LSTMModel, data_load_and_separate, 
 
 
 if __name__ == "__main__":
-    DATA_PATH = 'VidData_run'
-    log_dir = f"runs/run_model_experiment_global3"
-    best_model_path = f"checkpoints/run_model_experiment_global3"
+    DATA_PATH = 'VidData_turn'
+    log_dir = f"runs/turn_model_experiment_global3"
+    best_model_path = f"checkpoints/turn_model_experiment_global3"
     os.makedirs(best_model_path, exist_ok=True)
     non_arm_indices = [
         0,
@@ -30,7 +30,7 @@ if __name__ == "__main__":
     print(device)
 
     # Действия
-    actions = np.array(["Ходьба вперед", "Ходьба назад", "Ходьба влево", "Ходьба вправо", "Бег вперед", "Бездействие"])
+    actions = np.array(["Поворот направо", "Поворот налево", "Поворот вверх", "Поворот вниз", "Бездействие"])
     label_map = {action: idx for idx, action in enumerate(actions)}
     invers_label_map = {idx: action for idx, action in enumerate(actions)}
     num_classes = len(actions)
@@ -42,7 +42,7 @@ if __name__ == "__main__":
     train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
     test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=False)
 
-    model = LSTMModel(INPUT_DIM, hidden_dim=128, output_dim=num_classes).to(device)
+    model = LSTMModel(INPUT_DIM, hidden_dim=128, output_dim=num_classes, dropout=0.1).to(device)
     criterion = nn.BCEWithLogitsLoss()
     optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
     accuracy = Accuracy(task='multilabel', num_labels=num_classes).to(device)

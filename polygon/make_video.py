@@ -143,16 +143,16 @@ def make_test_video(data_path):
 if __name__ == "__main__":
     mode = 1
     if mode == 1:
-        DATA_PATH = os.path.join('VidData_run')
+        DATA_PATH = os.path.join('VidData_turn')
         os.makedirs(DATA_PATH, exist_ok=True)
 
-        actions = np.array(["Ходьба вперед", "Ходьба назад", "Ходьба влево", "Ходьба вправо", "Бег вперед", "Бездействие"])
+        actions = np.array(["Поворот направо", "Поворот налево", "Поворот вверх", "Поворот вниз", "Бездействие"])
         no_sequences = 100
         sequence_length = 30
         start_folder = 1
 
         setup_folders(DATA_PATH, actions, no_sequences)
-        collect_keypoints(actions, start_folder, no_sequences, DATA_PATH, 1)
+        collect_keypoints(actions, start_folder, no_sequences, DATA_PATH, 2)
     elif mode == 2:
         DATA_PATH = os.path.join('TestData')
         make_test_video(DATA_PATH)
