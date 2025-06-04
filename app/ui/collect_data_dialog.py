@@ -35,7 +35,7 @@ class CollectDataDialog(QDialog):
 
         for idx, class_name in enumerate(self.class_data.keys()):
             checkbox = QCheckBox(class_name)
-            if idx > 7:
+            if idx > 6:
                 checkbox.setChecked(True)
             checkbox.setStyleSheet("color: white;")
             checkbox.stateChanged.connect(lambda state, cb=checkbox: self._update_text_color(cb))

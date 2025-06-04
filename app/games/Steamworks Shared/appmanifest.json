@@ -5,7 +5,9 @@
     "exe": [
         "C:/Program Files (x86)/Steam/steamapps/common/Steamworks Shared/_CommonRedist/DirectX/Jun2010/DXSETUP.exe",
         "C:/Program Files (x86)/Steam/steamapps/common/Steamworks Shared/_CommonRedist/vcredist/2015/vc_redist.x64.exe",
-        "C:/Program Files (x86)/Steam/steamapps/common/Steamworks Shared/_CommonRedist/vcredist/2015/vc_redist.x86.exe"
+        "C:/Program Files (x86)/Steam/steamapps/common/Steamworks Shared/_CommonRedist/vcredist/2015/vc_redist.x86.exe",
+        "C:/Program Files (x86)/Steam/steamapps/common/Steamworks Shared/_CommonRedist/vcredist/2022/VC_redist.x64.exe",
+        "C:/Program Files (x86)/Steam/steamapps/common/Steamworks Shared/_CommonRedist/vcredist/2022/VC_redist.x86.exe"
     ],
     "assets": {
         "cover": ".",

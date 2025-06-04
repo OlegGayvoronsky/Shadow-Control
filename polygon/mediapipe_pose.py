@@ -66,7 +66,7 @@ walk_model.load_state_dict(torch.load("checkpoints/run_model_experiment_global3.
 walk_model.eval()
 
 turn_model = LSTMModel(INPUT_DIM, hidden_dim=128, output_dim=num_turn_classes, dropout=0.1).to(device)
-turn_model.load_state_dict(torch.load("checkpoints/turn_model_experiment_global3/best_model.pth"))
+turn_model.load_state_dict(torch.load("checkpoints/turn_model_experiment_global3.1/best_model.pth"))
 turn_model.eval()
 
 cap = cv2.VideoCapture(1, cv2.CAP_DSHOW)
@@ -122,10 +122,11 @@ while cap.isOpened():
         h, w, _ = frame.shape
         x, tx = int(point.x * w), int(tpoint.x * w)
         y, ty = int(point.y * h), int(tpoint.y * h)
+        clrs = {"Поворот направо": (0, 255, 0), "Поворот налево": (255, 0, 0), "Поворот вверх": (0, 0, 255), "Поворот вниз": (32, 100, 100), "Бездействие": (0, 0, 0)}
         cv2.putText(frame, f"{invers_walk_label_map[walk_pred]}", (x, y),
                     cv2.FONT_HERSHEY_COMPLEX, 2, (0, 255, 0), 2)
         cv2.putText(frame, f"{invers_turn_label_map[turn_pred]}", (tx, ty),
-                    cv2.FONT_HERSHEY_COMPLEX, 2, (0, 255, 0), 2)
+                    cv2.FONT_HERSHEY_COMPLEX, 2, clrs[invers_turn_label_map[turn_pred]], 2)
         mp_drawing.draw_landmarks(frame, results.pose_landmarks, mp_pose.POSE_CONNECTIONS)
     cv2.imshow("Pose Detection", frame)
 

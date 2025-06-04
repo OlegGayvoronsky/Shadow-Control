@@ -146,7 +146,7 @@ if __name__ == "__main__":
         DATA_PATH = os.path.join('VidData_turn')
         os.makedirs(DATA_PATH, exist_ok=True)
 
-        actions = np.array(["Поворот направо", "Поворот налево", "Поворот вверх", "Поворот вниз", "Бездействие"])
+        actions = np.array(["Поворот вверх", "Поворот вниз"])
         no_sequences = 100
         sequence_length = 30
         start_folder = 1

@@ -1,28 +1,65 @@
 import os
 import subprocess
-from math import acos, degrees
+import threading
+from math import atan2, degrees
 import cv2
 import numpy as np
 from PySide6.QtCore import QThread, Signal, Qt, QSize
 from PySide6.QtGui import QMovie, QImage, QPixmap, QShortcut, QKeySequence
 from PySide6.QtWidgets import QMessageBox, QWidget, QVBoxLayout, QLabel, QApplication, QDialog, QHBoxLayout, QPushButton
+from flask import Flask, Response
+
 from logic.classification_model import LSTMModel
 from logic.utils import extract_keypoints
+from logic.rstp_server import download_mediamtx, start_mediamtx, stop_mediamtx, install_ffmpeg
 import torch
 import time
 import ctypes
 
 import pydirectinput as pdi
 
-class GameController(QThread):
-    frame_signal = Signal(np.ndarray)
+app = Flask(__name__)
+last_frame = None
+lock = threading.Lock()
 
-    def __init__(self, actions, walk_actions, turn_actions, model_path, walk_model_path, turn_model_path, camera_index):
+def generate():
+    global last_frame
+    while True:
+        with lock:
+            if last_frame is None:
+                continue
+            ret, jpeg = cv2.imencode('.jpg', last_frame)
+            if not ret:
+                continue
+            frame = jpeg.tobytes()
+        yield (b'--frame\r\n'
+               b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
+
+
+@app.route('/video')
+def video_feed():
+    return Response(generate(), mimetype='multipart/x-mixed-replace; boundary=frame')
+
+
+def run_flask():
+    print("Starting Flask server...")
+    app.run(host='0.0.0.0', port=8080, threaded=True, debug=False, use_reloader=False)
+
+
+class GameController(QThread):
+    # frame_signal = Signal(np.ndarray)
+
+    def __init__(self, path, actions, walk_actions, turn_actions, model_path, walk_model_path, turn_model_path, camera_index):
         super().__init__()
         import mediapipe as mp
 
+        install_ffmpeg()
         self.paused = False
         self._stop_event = False
+
+        # exe_path = download_mediamtx()
+        # self.server_proc = start_mediamtx(exe_path, path)
+        # time.sleep(2)
         self.mp_pose = mp.solutions.pose
         self.mp_drawing = mp.solutions.drawing_utils
         self.mp_connections = mp.solutions.pose.POSE_CONNECTIONS
@@ -81,8 +118,6 @@ class GameController(QThread):
     def handle_prediction(self, action_res, walk_res):
         pred = torch.where(action_res == 1)[0].cpu().tolist()
         walk_pred = walk_res
-        if(len(walk_pred) == 0 or len(pred) == 0):
-            return
 
         walk_action = self.invers_walk_label_map[walk_pred[0]]
         for w_act in self.walk_actions:
@@ -94,6 +129,9 @@ class GameController(QThread):
             if flag != mode:
                 self.walk_actions[w_act][1] = mode
                 self.press_combination(walk_key, mode)
+
+        if len(pred) == 0:
+            return
 
         drop_flags = self.label_map["Бездействие"] in pred
         for act in self.actions:
@@ -109,31 +147,21 @@ class GameController(QThread):
                 else:
                     self.press_combination(key, mode)
 
-
-    def move_mouse_by_head_angles(self, turn_pred, sens=0.1):
-        if (len(turn_pred) == 0):
-            return
-
-        walk_action = self.invers_turn_label_map[turn_pred[0]]
-        if walk_action == "Поворот направо":
-            horizontal_angle = 20
-            vertical_angle = 0
-        elif walk_action == "Поворот налево":
-            horizontal_angle = -20
-            vertical_angle = 0
-        elif walk_action == "Поворот ввверх":
+    def move_mouse_by_head_angles(self, vertical_angle, horizontal_angle, sens=0.1):
+        if abs(horizontal_angle) < 5:
             horizontal_angle = 0
-            vertical_angle = -20
-        elif walk_action == "Поворот вниз":
-            horizontal_angle = 0
-            vertical_angle = 20
         else:
-            horizontal_angle = 0
+            horizontal_angle = 10 * horizontal_angle / abs(horizontal_angle)
+        if horizontal_angle != 0 or 0 <= vertical_angle < 8 or -3 < vertical_angle < 0:
             vertical_angle = 0
+        elif not (0 <= vertical_angle < 8 or -3 < vertical_angle < 0):
+            vertical_angle = 10 * vertical_angle / abs(vertical_angle)
 
+        # Смещения по осям
         dx = int(horizontal_angle * sens)
         dy = int(vertical_angle * sens)
 
+        # Плавное движение мыши
         pdi.moveRel(round(dx), round(dy))
 
 
@@ -145,64 +173,100 @@ class GameController(QThread):
         if f1 and f2:
             jump = True
 
-        if distances[-1] < 0.46:
+        if distances[-1] < 0.35:
             sit = True
         return jump, sit
 
     def algebra_calculate(self, results, points, distances):
-        x = np.array([1, 0, 0])
-        z = np.array([0, 0, 1])
-        landmarks = results.pose_world_landmarks.landmark
-        x_vals = [-lm.x for lm in landmarks]
-        z_vals = [-lm.y for lm in landmarks]
-        y_vals = [-lm.z for lm in landmarks]
+        y = np.array([0, 1, 0])
 
-        # 2d токи носа
-        points.append(results.pose_landmarks.landmark[11])
+        landmarks = results.pose_world_landmarks.landmark
+
+        x_vals = [-lm.x for lm in landmarks]
+        y_vals = [-lm.z for lm in landmarks]
+        z_vals = [-lm.y for lm in landmarks]
+
+        points.append(results.pose_landmarks.landmark[0])
         points = points[-20:]
 
-        # 3d токи
-        nose = np.array([x_vals[0], y_vals[0], z_vals[0]])
-        l_ear = np.array([x_vals[7], y_vals[7], z_vals[7]])
-        r_ear = np.array([x_vals[8], y_vals[8], z_vals[8]])
         l_sh = np.array([x_vals[11], y_vals[11], z_vals[11]])
         r_sh = np.array([x_vals[12], y_vals[12], z_vals[12]])
         l_hip = np.array([x_vals[23], y_vals[23], z_vals[23]])
         r_hip = np.array([x_vals[24], y_vals[24], z_vals[24]])
 
-        distance = (l_sh + r_sh) / 2 - (l_hip + r_hip) / 2
+        shoulder_center = (l_sh + r_sh) / 2
+        hip_center = (l_hip + r_hip) / 2
+        distance = shoulder_center - hip_center
         distance[1] = 0
-        distance = np.linalg.norm(distance)
-        distances.append(distance)
+        distances.append(np.linalg.norm(distance))
         distances = distances[-20:]
 
-        spine = (l_sh + r_sh) / 2 - (l_hip + r_hip) / 2
-        spine[1] = 0
-        norms = np.linalg.norm(spine)
-        if norms != 0: spine /= norms
+        torso_vector = shoulder_center - hip_center
+        if np.linalg.norm(torso_vector) != 0:
+            torso_vector /= np.linalg.norm(torso_vector)
+        shoulder_vector = l_sh - r_sh
+        torso_forward = -np.cross(shoulder_vector, y)
+        if np.linalg.norm(torso_forward) != 0:
+            torso_forward /= np.linalg.norm(torso_forward)
 
-        head = (l_ear + r_ear) / 2
-        vision1, vision2 = nose - head, nose - head
-        vision1[0] = 0
-        vision2[2] = 0
-        norm1 = np.linalg.norm(vision1)
-        norm2 = np.linalg.norm(vision2)
-        if norm1 != 0: vision1 /= norm1
-        if norm2 != 0: vision2 /= norm2
-        angle1 = degrees(acos(vision1 @ z))
-        angle2 = degrees(acos(vision2 @ x))
-        if abs(degrees(acos(spine @ z))) > 3:
-            angle1 = 100
-            angle2 = 87
+        angle2 = degrees(atan2(torso_forward[0], torso_forward[2])) - 2
+        angle1 = degrees(atan2(torso_vector[1], torso_vector[2])) - 15
+
+        l_hand = np.array([x_vals[15], y_vals[15], z_vals[15]])
+        r_hand = np.array([x_vals[16], y_vals[16], z_vals[16]])
+
+        torso_length = np.linalg.norm(shoulder_center - hip_center)
+        dist_l = np.linalg.norm(l_hand - l_hip)
+        dist_r = np.linalg.norm(r_hand - r_hip)
+        if torso_length != 0:
+            dist_l /= torso_length
+            dist_r /= torso_length
+
+        lr_hip_threshold = 0.5
+        ud_hip_threshold = 0.5
+        lr_hand_on_hip = dist_l <= lr_hip_threshold or dist_r <= lr_hip_threshold
+        ud_hand_on_hip = dist_l <= ud_hip_threshold or dist_r <= ud_hip_threshold
+        if not lr_hand_on_hip:
+            angle2 = 0
+        if not ud_hand_on_hip:
+            angle1 = 0
+
         return points, distances, angle1, angle2
 
 
     def run(self):
+        global last_frame
+        threading.Thread(target=run_flask, daemon=True).start()
+        # ffmpeg_cmd = [
+        #     'ffmpeg',
+        #     '-f', 'rawvideo',
+        #     '-pix_fmt', 'bgr24',
+        #     '-s', f'640x480',
+        #     '-i', '-',
+        #     '-fflags', 'nobuffer',
+        #     '-flags', 'low_delay',
+        #     '-strict', 'experimental',
+        #     '-c:v', 'libx264',
+        #     '-preset', 'ultrafast',
+        #     '-tune', 'zerolatency',
+        #     '-pix_fmt', 'yuv420p',
+        #     '-f', 'rtsp',
+        #     '-rtsp_transport', 'tcp',
+        #     'rtsp://127.0.0.1:8554/mystream'
+        # ]
+        #
+        # process = subprocess.Popen(ffmpeg_cmd, stdin=subprocess.PIPE)
+        # ret, frame = self.cap.read()
+        # if ret and process.stdin:
+        #     try:
+        #         process.stdin.write(frame.tobytes())
+        #     except BrokenPipeError:
+        #         print("FFmpeg stdin закрыт (Broken pipe)")
+
         jump = False
         sit = False
         points = []
         distances = []
-
         pred = []
         walk_pred = []
         while not self._stop_event:
@@ -222,7 +286,7 @@ class GameController(QThread):
             self.drawing.draw_landmarks(frame, results.pose_landmarks, self.mp_connections)
             keypoints1 = extract_keypoints(results, 1)
             keypoints2 = extract_keypoints(results, 2)
-            self.sequence.append(keypoints1)
+            self.sequence1.append(keypoints1)
             self.sequence2.append(keypoints2)
             points, distances, angle1, angle2 = self.algebra_calculate(results, points, distances)
 
@@ -237,17 +301,18 @@ class GameController(QThread):
                     self.walk_actions["Сесть"][1] = sit
                     self.press_combination(self.walk_actions["Сесть"][0], sit)
 
-            if len(self.sequence) == 30:
+            if len(self.sequence1) == 30:
                 with torch.no_grad():
-                    action_res = self.action_predict(np.expand_dims(self.sequence, axis=0))[0]
-                    walk_res = self.walk_predict(np.expand_dims(self.sequence, axis=0))
-                    turn_res = self.turn_predict(np.expand_dims(self.sequence, axis=0))
+                    action_res = self.action_predict(np.expand_dims(self.sequence1, axis=0))[0]
+                    walk_res = self.walk_predict(np.expand_dims(self.sequence2, axis=0))
 
-                self.handle_prediction(action_res, walk_res)
-                self.move_mouse_by_head_angles(turn_res)
+                # self.handle_prediction(action_res, walk_res)
                 pred = torch.where(action_res == 1)[0].cpu().tolist()
                 walk_pred = walk_res
-                self.sequence = self.sequence[-20:]
+                self.sequence1 = self.sequence1[-20:]
+                self.sequence2 = self.sequence2[-20:]
+
+            # self.move_mouse_by_head_angles(angle1, angle2)
 
             for i, lbl in enumerate(pred):
                 label_name = self.invers_label_map[lbl]
@@ -263,7 +328,7 @@ class GameController(QThread):
                 jx, sx = int(jp.x * w), int(sp.x * w)
                 jy, sy = int(jp.y * h), int(sp.y * h)
                 cv2.putText(frame, f"j: {jump}", (jx, jy),
-                            cv2.FONT_HERSHEY_COMPLEX, 2, (0, 255, 0), 2)
+                            cv2.FONT_HERSHEY_COMPLEX, 2, (255, 0, 0), 2)
                 cv2.putText(frame, f"s: {sit}", (sx, sy),
                             cv2.FONT_HERSHEY_COMPLEX, 2, (0, 0, 255), 2)
                 walk_label = self.invers_walk_label_map[walk_pred[0]] if len(walk_pred) > 0 else ""
@@ -276,8 +341,33 @@ class GameController(QThread):
             cv2.putText(frame, f"FPS: {fps:.2f}", (10, 30),
                         cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
 
-            self.frame_signal.emit(frame)
+            with lock:
+                last_frame = frame.copy()
+            # if process.stdin:
+            #     try:
+            #         process.stdin.write(frame.tobytes())
+            #     except BrokenPipeError:
+            #         print("FFmpeg stdin закрыт (Broken pipe)")
 
+
+        for k in self.actions.keys():
+            if self.actions[k][1]:
+                key = self.actions[k][0]
+                if key in ['left click', 'right click']:
+                    self.press_mouse(key, 0)
+                else:
+                    self.press_combination(key, 0)
+
+        for k in self.walk_actions.keys():
+            if self.walk_actions[k][1]:
+                key = self.walk_actions[k][0]
+                if key in ['left click', 'right click']:
+                    self.press_mouse(key, 0)
+                else:
+                    self.press_combination(key, 0)
+
+        # process.stdin.close()
+        # process.wait()
         self.cleanup()
 
     def action_predict(self, data):
@@ -310,6 +400,7 @@ class GameController(QThread):
     def cleanup(self):
         self.cap.release()
         cv2.destroyAllWindows()
+        # stop_mediamtx(self.server_proc)
 
     def stop(self):
         self._stop_event = True
@@ -325,7 +416,7 @@ class GameController(QThread):
 class ControllerThread(QThread):
     controller_ready = Signal()
 
-    def __init__(self, action_model_path, walk_model_path, turn_model_path, actions, walk_actions, turn_actions):
+    def __init__(self, path, action_model_path, walk_model_path, turn_model_path, actions, walk_actions, turn_actions):
         super().__init__()
         self.action_model_path = action_model_path
         self.walk_model_path = walk_model_path
@@ -333,9 +424,11 @@ class ControllerThread(QThread):
         self.actions = actions
         self.walk_actions = walk_actions
         self.turn_actions = turn_actions
+        self.path = path
 
     def run(self):
         self.controller = GameController(
+            path=self.path,
             model_path=self.action_model_path,
             walk_model_path=self.walk_model_path,
             turn_model_path=self.turn_model_path,
@@ -354,12 +447,13 @@ class ControllerThread(QThread):
         self.wait()
 
 class GameLauncher:
-    def __init__(self, parent_window, exe_file, actions, walk_actions, turn_actions, action_model_path, walk_model_path, turn_model_path):
+    def __init__(self, parent_window, path, exe_file, actions, walk_actions, turn_actions, action_model_path, walk_model_path, turn_model_path):
         self.parent_window = parent_window
         self.exe_file = exe_file
         self.process = None
         self.camera_window = None
-        self.controller_thread = ControllerThread(action_model_path=action_model_path,
+        self.controller_thread = ControllerThread(path=path,
+                                                  action_model_path=action_model_path,
                                                   walk_model_path=walk_model_path,
                                                   turn_model_path=turn_model_path,
                                                   actions=actions,
@@ -390,8 +484,8 @@ class GameLauncher:
         self.pause_shortcut = QShortcut(QKeySequence("Ctrl+P"), self.parent_window)
         self.pause_shortcut.activated.connect(self.toggle_pause)
 
-        self.cam_shortcut = QShortcut(QKeySequence("Ctrl+C"), self.parent_window)
-        self.cam_shortcut.activated.connect(self.toggle_camera_window)
+        # self.cam_shortcut = QShortcut(QKeySequence("Ctrl+C"), self.parent_window)
+        # self.cam_shortcut.activated.connect(self.toggle_camera_window)
 
         self.exit_shortcut = QShortcut(QKeySequence("Ctrl+Q"), self.parent_window)
         self.exit_shortcut.activated.connect(self.show_exit_dialog)
@@ -399,13 +493,13 @@ class GameLauncher:
     def toggle_pause(self):
         self.controller_thread.controller.toggle_pause()
 
-    def toggle_camera_window(self):
-        if self.camera_window and self.camera_window.isVisible():
-            self.camera_window.hide()
-        else:
-            if not self.camera_window:
-                self.camera_window = FloatingCameraWindow(self.controller_thread.controller)
-            self.camera_window.show()
+    # def toggle_camera_window(self):
+    #     if self.camera_window and self.camera_window.isVisible():
+    #         self.camera_window.hide()
+    #     else:
+    #         if not self.camera_window:
+    #             self.camera_window = FloatingCameraWindow(self.controller_thread.controller)
+    #         self.camera_window.show()
 
     def show_exit_dialog(self):
         if self.exit_dialog.exec() and self.camera_window and self.camera_window.isVisible():
@@ -471,64 +565,64 @@ class LoadingWindow(QWidget):
             self.move(qr.topLeft())
 
 
-class FloatingCameraWindow(QWidget):
-    def __init__(self, controller):
-        super().__init__()
-
-        # Окно поверх всех, без рамок
-        self.setWindowFlags(Qt.WindowStaysOnTopHint | Qt.FramelessWindowHint)
-
-        self.controller = controller
-        self.label = QLabel()
-        self.label.setFixedSize(640, 480)
-        self.label.setStyleSheet("background-color: black;")
-
-        layout = QVBoxLayout()
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.addWidget(self.label)
-        self.setLayout(layout)
-
-        self.controller.frame_signal.connect(self.update_frame)
-
-        self.dragging = False
-        self.drag_position = None
-
-        self.show()  # Показать окно
-        self.force_stay_on_top()  # Зафиксировать поверх всех окон
-
-    def force_stay_on_top(self):
-        """Принудительно установить окно поверх всех окон через WinAPI"""
-        hwnd = int(self.winId())  # Получаем HWND окна
-        HWND_TOPMOST = -1
-        SWP_NOMOVE = 0x0002
-        SWP_NOSIZE = 0x0001
-        SWP_SHOWWINDOW = 0x0040
-
-        ctypes.windll.user32.SetWindowPos(
-            hwnd, HWND_TOPMOST, 0, 0, 0, 0,
-            SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW
-        )
-
-    def update_frame(self, frame):
-        rgb_image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        h, w, ch = rgb_image.shape
-        bytes_per_line = ch * w
-        qt_image = QImage(rgb_image.data, w, h, bytes_per_line, QImage.Format_RGB888)
-        self.label.setPixmap(QPixmap.fromImage(qt_image))
-
-    def mousePressEvent(self, event):
-        if event.button() == Qt.LeftButton:
-            self.dragging = True
-            self.drag_position = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
-            event.accept()
-
-    def mouseMoveEvent(self, event):
-        if self.dragging and event.buttons() & Qt.LeftButton:
-            self.move(event.globalPosition().toPoint() - self.drag_position)
-            event.accept()
-
-    def mouseReleaseEvent(self, event):
-        if event.button() == Qt.LeftButton:
-            self.dragging = False
-            event.accept()
+# class FloatingCameraWindow(QWidget):
+#     def __init__(self, controller):
+#         super().__init__()
+#
+#         # Окно поверх всех, без рамок
+#         self.setWindowFlags(Qt.WindowStaysOnTopHint | Qt.FramelessWindowHint)
+#
+#         self.controller = controller
+#         self.label = QLabel()
+#         self.label.setFixedSize(640, 480)
+#         self.label.setStyleSheet("background-color: black;")
+#
+#         layout = QVBoxLayout()
+#         layout.setContentsMargins(0, 0, 0, 0)
+#         layout.addWidget(self.label)
+#         self.setLayout(layout)
+#
+#         self.controller.frame_signal.connect(self.update_frame)
+#
+#         self.dragging = False
+#         self.drag_position = None
+#
+#         self.show()  # Показать окно
+#         self.force_stay_on_top()  # Зафиксировать поверх всех окон
+#
+#     def force_stay_on_top(self):
+#         """Принудительно установить окно поверх всех окон через WinAPI"""
+#         hwnd = int(self.winId())  # Получаем HWND окна
+#         HWND_TOPMOST = -1
+#         SWP_NOMOVE = 0x0002
+#         SWP_NOSIZE = 0x0001
+#         SWP_SHOWWINDOW = 0x0040
+#
+#         ctypes.windll.user32.SetWindowPos(
+#             hwnd, HWND_TOPMOST, 0, 0, 0, 0,
+#             SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW
+#         )
+#
+#     def update_frame(self, frame):
+#         rgb_image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+#         h, w, ch = rgb_image.shape
+#         bytes_per_line = ch * w
+#         qt_image = QImage(rgb_image.data, w, h, bytes_per_line, QImage.Format_RGB888)
+#         self.label.setPixmap(QPixmap.fromImage(qt_image))
+#
+#     def mousePressEvent(self, event):
+#         if event.button() == Qt.LeftButton:
+#             self.dragging = True
+#             self.drag_position = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
+#             event.accept()
+#
+#     def mouseMoveEvent(self, event):
+#         if self.dragging and event.buttons() & Qt.LeftButton:
+#             self.move(event.globalPosition().toPoint() - self.drag_position)
+#             event.accept()
+#
+#     def mouseReleaseEvent(self, event):
+#         if event.button() == Qt.LeftButton:
+#             self.dragging = False
+#             event.accept()
 

@@ -91,11 +91,13 @@ class KeyBindingLineEdit(QLineEdit):
         self.index = index
         self.setReadOnly(True)
         self.recording_started = False
-        self.default_style = self.styleSheet()  # Сохраняем стандартный стиль
+        self.awaiting_first_release = False
+        self.pressed_mouse_buttons = []
+        self.default_style = self.styleSheet()
 
     def startRecording(self):
-        """Активирует режим записи, очищает текст и подсвечивает ячейку."""
         self.recording_started = True
+        self.awaiting_first_release = True
         self.value = self.text().strip()
         self.clear()
         self.setText("     ")
@@ -104,25 +106,26 @@ class KeyBindingLineEdit(QLineEdit):
 
     def stopRecording(self):
         self.recording_started = False
+        self.awaiting_first_release = False
+        self.pressed_mouse_buttons.clear()
         if self.default_style:
             self.setStyleSheet(self.default_style)
         else:
             self.setStyleSheet("")
+
         with open(self.settings_pth, "r", encoding="utf-8") as f:
             data = json.load(f)
-            flag1 = 0
             for i, action in enumerate(data.keys()):
                 if i == self.index:
                     data[action] = self.text().strip()
-                    flag1 = 1
-            if not flag1:
-                data[f"{self.index}"] = self.text().strip()
+                    break
+            else:
+                data[str(self.index)] = self.text().strip()
+
         with open(self.settings_pth, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=4)
 
-
     def keyPressEvent(self, event: QKeyEvent):
-        """Обрабатывает нажатия клавиш в режиме записи."""
         if not self.recording_started:
             return
 
@@ -137,7 +140,6 @@ class KeyBindingLineEdit(QLineEdit):
         key = event.key()
         key_name = QKeySequence(key).toString()
 
-        # Обработка специальных клавиш вручную
         special_keys = {
             Qt.Key_Space: "Space",
             Qt.Key_Tab: "Tab",
@@ -153,19 +155,35 @@ class KeyBindingLineEdit(QLineEdit):
         }
 
         key_str = special_keys.get(key, key_name)
-
         if key_str and key_str not in modifiers and key_str != "Control":
             modifiers.append(key_str)
 
         self.setText("+".join(modifiers))
-        if self.recording_started:
-            self.stopRecording()
+        self.stopRecording()
 
     def mousePressEvent(self, event: QMouseEvent):
         if not self.recording_started:
             self.startRecording()
             return
 
+        if self.awaiting_first_release:
+            return
+
+        self.pressed_mouse_buttons.append(event.button())
+        self._update_mouse_text(event)
+
+    def mouseReleaseEvent(self, event: QMouseEvent):
+        if self.awaiting_first_release:
+            self.awaiting_first_release = False
+            return
+
+        if event.button() in self.pressed_mouse_buttons:
+            self.pressed_mouse_buttons.remove(event.button())
+
+        if self.recording_started and not self.pressed_mouse_buttons:
+            self.stopRecording()
+
+    def _update_mouse_text(self, event: QMouseEvent):
         modifiers = []
         if event.modifiers() & Qt.ControlModifier:
             modifiers.append("Ctrl")
@@ -174,17 +192,15 @@ class KeyBindingLineEdit(QLineEdit):
         if event.modifiers() & Qt.AltModifier:
             modifiers.append("Alt")
 
-        button = event.button()
-        if button == Qt.LeftButton:
-            modifiers.append("Left Click")
-        elif button == Qt.RightButton:
-            modifiers.append("Right Click")
-        elif button == Qt.MiddleButton:
-            modifiers.append("Middle Click")
+        for btn in self.pressed_mouse_buttons:
+            if Qt.LeftButton == btn:
+                modifiers.append("Left Click")
+            if Qt.RightButton == btn:
+                modifiers.append("Right Click")
+            if Qt.MiddleButton == btn:
+                modifiers.append("Middle Click")
 
         self.setText("+".join(modifiers))
-        if self.recording_started:
-            self.stopRecording()
 
     def focusOutEvent(self, event: QFocusEvent):
         if self.recording_started:
@@ -193,6 +209,7 @@ class KeyBindingLineEdit(QLineEdit):
 
     def contextMenuEvent(self, event):
         pass
+
 
 
 class GameMenu(QWidget):
@@ -211,8 +228,7 @@ class GameMenu(QWidget):
                 data = json.load(f)
                 if data == {}:
                     data = {"Идти вперед": "W", "Идти назад": "S", "Идти влево": "A",
-                            "Идти вправо": "D", "Бег вперед": "Shift + W",
-                            "Бег назад": "Shift + S", "Прыжок": "Space", "Сесть": "Ctrl"}
+                            "Идти вправо": "D", "Бег вперед": "Shift + W", "Прыжок": "Space", "Сесть": "Ctrl"}
             with open(self.settings_path, "w", encoding="utf-8") as f:
                 json.dump(data, f, ensure_ascii=False, indent=4)
 
@@ -417,7 +433,7 @@ class GameMenu(QWidget):
         with open(self.settings_path, "r", encoding="utf-8") as f:
             data = json.load(f)
             for idx, (action, keys) in enumerate(data.items()):
-                if idx > 7 and " + " not in action:
+                if idx > 6 and " + " not in action:
                     directories.append(action)
 
         name = "model_1"
@@ -494,7 +510,7 @@ class GameMenu(QWidget):
                 if action_field and key_field:
                     action = action_field.text().strip()
                     key = key_field.text().strip()
-                    if key == "Такая клавиша уже назначена" or key == "Клавиша":
+                    if key == "Клавиша":
                         key = ""
                     data[action] = key
 
@@ -533,7 +549,7 @@ class GameMenu(QWidget):
                     actions = {}
                     walk_actions = {}
                     for i, (action, key) in enumerate(data.items()):
-                        if i <= 7:
+                        if i <= 6:
                             walk_actions[action] = [key, False]
                         elif " + " not in action:
                             actions[action] = [key, False]
@@ -547,6 +563,7 @@ class GameMenu(QWidget):
 
             from logic.game_control import GameLauncher
             self.gl = GameLauncher(parent_window=self,
+                         path=Path(__file__).resolve().parent.parent / "mediamtx",
                          exe_file=exe,
                          actions=actions,
                          walk_actions=walk_actions,
