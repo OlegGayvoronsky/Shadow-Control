@@ -13,6 +13,7 @@ mp_pose = mp.solutions.pose
 pose = mp_pose.Pose(
     static_image_mode=False,
     model_complexity=1,
+    smooth_landmarks=True,
     enable_segmentation=False,
     min_detection_confidence=0.5,
     min_tracking_confidence=0.7
@@ -143,16 +144,27 @@ def make_test_video(data_path):
 if __name__ == "__main__":
     mode = 1
     if mode == 1:
-        DATA_PATH = os.path.join('VidData_turn')
+        DATA_PATH = os.path.join('VidData')
         os.makedirs(DATA_PATH, exist_ok=True)
 
-        actions = np.array(["Поворот вверх", "Поворот вниз"])
+        actions = np.array(["Удар левой",
+                            "Удар правой",
+                            "Двуручный удар",
+                            "Блок щитом",
+                            "Удар щитом",
+                            "Атака магией с левой руки",
+                            "Атака магией с правой руки",
+                            "Использование магии с левой руки",
+                            "Использование магии с правой руки",
+                            "Использование магии с левой руки + Использование магии с правой руки",
+                            "Атака магией с левой руки + Атака магией с правой руки",
+                            "Бездействие"])
         no_sequences = 100
         sequence_length = 30
         start_folder = 1
 
         setup_folders(DATA_PATH, actions, no_sequences)
-        collect_keypoints(actions, start_folder, no_sequences, DATA_PATH, 2)
+        collect_keypoints(actions, start_folder, no_sequences, DATA_PATH, 1)
     elif mode == 2:
         DATA_PATH = os.path.join('TestData')
         make_test_video(DATA_PATH)

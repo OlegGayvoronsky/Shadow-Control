@@ -11,7 +11,7 @@ from train_model_utils import ActionDataset, LSTMModel, data_load_and_separate, 
 
 
 if __name__ == "__main__":
-    DATA_PATH = 'VidData_turn'
+    DATA_PATH = 'VidData'
     log_dir = f"runs/turn_model_experiment_global3.1"
     best_model_path = f"checkpoints/turn_model_experiment_global3.1"
     os.makedirs(best_model_path, exist_ok=True)

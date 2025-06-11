@@ -8,6 +8,40 @@ from matplotlib import pyplot as plt
 from train_model_utils import extract_keypoints, LSTMModel, predict
 
 
+def set_natural_arm_pose(landmarks, hand='left'):
+    if hand == 'left':
+        shoulder_idx, elbow_idx, wrist_idx = 11, 13, 15
+        hip_idx = 23
+    else:
+        shoulder_idx, elbow_idx, wrist_idx = 12, 14, 16
+        hip_idx = 24
+
+    shoulder = landmarks[shoulder_idx]
+    hip = landmarks[hip_idx]
+
+    # Рассчитываем вектор от плеча до бедра
+    dx = hip.x - shoulder.x
+    dy = hip.y - shoulder.y
+    dz = hip.z - shoulder.z
+
+    # Позиция локтя: чуть ниже и ближе к центру тела
+    elbow = mp_pose.PoseLandmark(elbow_idx)
+    landmarks[elbow_idx].x = shoulder.x + dx * 0.5
+    landmarks[elbow_idx].y = shoulder.y + dy * 0.5
+    landmarks[elbow_idx].z = shoulder.z + dz * 0.5
+    landmarks[elbow_idx].visibility = 1.0
+
+    # Позиция кисти: чуть ниже локтя
+    landmarks[wrist_idx].x = landmarks[elbow_idx].x + dx * 0.3
+    landmarks[wrist_idx].y = landmarks[elbow_idx].y + dy * 0.3 + 0.02  # чуть ниже живота
+    landmarks[wrist_idx].z = landmarks[elbow_idx].z + dz * 0.3
+    landmarks[wrist_idx].visibility = 1.0
+
+def is_hand_confident(landmarks, hand='left', threshold=0.3):
+    ids = [11, 13, 15] if hand == 'left' else [12, 14, 16]
+    return all(landmarks[i].visibility > threshold for i in ids)
+
+
 def is_jump_or_sit(distances, points):
     jump = "nothing"
     sit = "nothing"
@@ -25,7 +59,7 @@ mp_pose = mp.solutions.pose
 pose = mp_pose.Pose(
     static_image_mode=False,
     model_complexity=1,
-    smooth_landmarks=False,
+    smooth_landmarks=True,
     enable_segmentation=False,
     min_detection_confidence=0.5,
     min_tracking_confidence=0.7
@@ -33,9 +67,19 @@ pose = mp_pose.Pose(
 mp_drawing = mp.solutions.drawing_utils
 
 
-actions = np.array(
-        ["sit down", "jump", "one-handed weapon attack", "two-handed weapon attack", "shield block", "weapon block",
-        "attacking magic", "bowstring pull", "nothing"])
+actions = np.array(["Удар левой"
+                        ,"Удар правой"
+                        ,"Двуручный удар"
+                        ,"Блок щитом"
+                        ,"Удар щитом"
+                        ,"Блок оружием"
+                        ,"Удар оружием"
+                        ,"Атака магией с левой руки"
+                        ,"Атака магией с правой руки"
+                        ,"Использование магии с левой руки"
+                        ,"Использование магии с правой руки"
+                        ,"Выстрел из лука"
+                        ,"Бездействие"])
 label_map = {action: idx for idx, action in enumerate(actions)}
 invers_label_map = {idx: action for idx, action in enumerate(actions)}
 num_classes = len(actions)
@@ -43,7 +87,7 @@ num_classes = len(actions)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(device)
 model = LSTMModel(33*4, hidden_dim=128, output_dim=num_classes).to(device)
-model.load_state_dict(torch.load("checkpoints/experiment_20250410-125405/best_model.pth"))
+model.load_state_dict(torch.load("checkpoints/experiment_global3.2/best_model.pth"))
 model.eval()
 
 
@@ -55,9 +99,9 @@ angle1 = 0
 angle2 = 0
 
 cap = cv2.VideoCapture(1, cv2.CAP_DSHOW)
-# plt.ion()
-# fig = plt.figure()
-# ax = fig.add_subplot(111, projection='3d')
+plt.ion()
+fig = plt.figure()
+ax = fig.add_subplot(111, projection='3d')
 
 k_frames = 0
 points = []
@@ -73,13 +117,18 @@ while cap.isOpened():
     results = pose.process(frame_rgb)
 
     if results.pose_landmarks:
+        landmarks = results.pose_landmarks.landmark
+        if not is_hand_confident(landmarks, hand="left"):
+            set_natural_arm_pose(landmarks, hand="left")
+        if not is_hand_confident(landmarks, hand="right"):
+            set_natural_arm_pose(landmarks, hand="right")
         mp_drawing.draw_landmarks(frame, results.pose_landmarks, mp_pose.POSE_CONNECTIONS)
 
-    # ax.clear()
-    # ax.set_xlim([-1, 1])
-    # ax.set_ylim([-1, 1])
-    # ax.set_zlim([-1, 1])
-    # ax.view_init(elev=15, azim=70)
+    ax.clear()
+    ax.set_xlim([-1, 1])
+    ax.set_ylim([-1, 1])
+    ax.set_zlim([-1, 1])
+    ax.view_init(elev=15, azim=70)
 
     if results.pose_world_landmarks:
         landmarks = results.pose_world_landmarks.landmark
@@ -131,13 +180,13 @@ while cap.isOpened():
         angle1 -= 100
         angle2 -= 90
 
-        # ax.scatter(x_vals, y_vals, z_vals, c='r')
-        # for connection in mp_pose.POSE_CONNECTIONS:
-        #     p1, p2 = connection
-        #     ax.plot([x_vals[p1], x_vals[p2]], [y_vals[p1], y_vals[p2]], [z_vals[p1], z_vals[p2]], 'b')
+        ax.scatter(x_vals, y_vals, z_vals, c='r')
+        for connection in mp_pose.POSE_CONNECTIONS:
+            p1, p2 = connection
+            ax.plot([x_vals[p1], x_vals[p2]], [y_vals[p1], y_vals[p2]], [z_vals[p1], z_vals[p2]], 'b')
 
-    # fig.canvas.draw()
-    # fig.canvas.flush_events()
+    fig.canvas.draw()
+    fig.canvas.flush_events()
 
     curr_time = time.time()
     fps = 1 / (curr_time - prev_time)

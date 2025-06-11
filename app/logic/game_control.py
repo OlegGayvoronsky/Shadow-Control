@@ -8,6 +8,7 @@ from PySide6.QtCore import QThread, Signal, Qt, QSize
 from PySide6.QtGui import QMovie, QImage, QPixmap, QShortcut, QKeySequence
 from PySide6.QtWidgets import QMessageBox, QWidget, QVBoxLayout, QLabel, QApplication, QDialog, QHBoxLayout, QPushButton
 from flask import Flask, Response
+from matplotlib import pyplot as plt
 
 from logic.classification_model import LSTMModel
 from logic.utils import extract_keypoints
@@ -18,32 +19,32 @@ import ctypes
 
 import pydirectinput as pdi
 
-app = Flask(__name__)
-last_frame = None
-lock = threading.Lock()
+# app = Flask(__name__)
+# last_frame = None
+# lock = threading.Lock()
 
-def generate():
-    global last_frame
-    while True:
-        with lock:
-            if last_frame is None:
-                continue
-            ret, jpeg = cv2.imencode('.jpg', last_frame)
-            if not ret:
-                continue
-            frame = jpeg.tobytes()
-        yield (b'--frame\r\n'
-               b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
-
-
-@app.route('/video')
-def video_feed():
-    return Response(generate(), mimetype='multipart/x-mixed-replace; boundary=frame')
-
-
-def run_flask():
-    print("Starting Flask server...")
-    app.run(host='0.0.0.0', port=8080, threaded=True, debug=False, use_reloader=False)
+# def generate():
+#     global last_frame
+#     while True:
+#         with lock:
+#             if last_frame is None:
+#                 continue
+#             ret, jpeg = cv2.imencode('.jpg', last_frame)
+#             if not ret:
+#                 continue
+#             frame = jpeg.tobytes()
+#         yield (b'--frame\r\n'
+#                b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
+#
+#
+# @app.route('/video')
+# def video_feed():
+#     return Response(generate(), mimetype='multipart/x-mixed-replace; boundary=frame')
+#
+#
+# def run_flask():
+#     print("Starting Flask server...")
+#     app.run(host='0.0.0.0', port=8080, threaded=True, debug=False, use_reloader=False)
 
 
 class GameController(QThread):
@@ -53,7 +54,7 @@ class GameController(QThread):
         super().__init__()
         import mediapipe as mp
 
-        install_ffmpeg()
+        # install_ffmpeg()
         self.paused = False
         self._stop_event = False
 
@@ -66,7 +67,7 @@ class GameController(QThread):
         self.pose = self.mp_pose.Pose(
             static_image_mode=False,
             model_complexity=1,
-            smooth_landmarks=False,
+            smooth_landmarks=True,
             enable_segmentation=False,
             min_detection_confidence=0.5,
             min_tracking_confidence=0.7
@@ -235,33 +236,11 @@ class GameController(QThread):
 
 
     def run(self):
-        global last_frame
-        threading.Thread(target=run_flask, daemon=True).start()
-        # ffmpeg_cmd = [
-        #     'ffmpeg',
-        #     '-f', 'rawvideo',
-        #     '-pix_fmt', 'bgr24',
-        #     '-s', f'640x480',
-        #     '-i', '-',
-        #     '-fflags', 'nobuffer',
-        #     '-flags', 'low_delay',
-        #     '-strict', 'experimental',
-        #     '-c:v', 'libx264',
-        #     '-preset', 'ultrafast',
-        #     '-tune', 'zerolatency',
-        #     '-pix_fmt', 'yuv420p',
-        #     '-f', 'rtsp',
-        #     '-rtsp_transport', 'tcp',
-        #     'rtsp://127.0.0.1:8554/mystream'
-        # ]
-        #
-        # process = subprocess.Popen(ffmpeg_cmd, stdin=subprocess.PIPE)
-        # ret, frame = self.cap.read()
-        # if ret and process.stdin:
-        #     try:
-        #         process.stdin.write(frame.tobytes())
-        #     except BrokenPipeError:
-        #         print("FFmpeg stdin закрыт (Broken pipe)")
+        fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+        # global last_frame
+        # threading.Thread(target=run_flask, daemon=True).start()
+        os.makedirs("./scrincast", exist_ok=True)
+        fps_list = []
 
         jump = False
         sit = False
@@ -269,6 +248,11 @@ class GameController(QThread):
         distances = []
         pred = []
         walk_pred = []
+        segment_number = 0
+        f = 0
+        frames = []
+        vid_path = os.path.join("./scrincast", f"video{segment_number}.mp4")
+        video_writer = cv2.VideoWriter(vid_path, fourcc, 30, (640, 480))
         while not self._stop_event:
             while self.paused:
                 time.sleep(0.1)
@@ -302,11 +286,12 @@ class GameController(QThread):
                     self.press_combination(self.walk_actions["Сесть"][0], sit)
 
             if len(self.sequence1) == 30:
+                f = 1
                 with torch.no_grad():
                     action_res = self.action_predict(np.expand_dims(self.sequence1, axis=0))[0]
                     walk_res = self.walk_predict(np.expand_dims(self.sequence2, axis=0))
 
-                # self.handle_prediction(action_res, walk_res)
+                self.handle_prediction(action_res, walk_res)
                 pred = torch.where(action_res == 1)[0].cpu().tolist()
                 walk_pred = walk_res
                 self.sequence1 = self.sequence1[-20:]
@@ -340,14 +325,21 @@ class GameController(QThread):
             self.prev_time = curr_time
             cv2.putText(frame, f"FPS: {fps:.2f}", (10, 30),
                         cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+            frames.append(frame)
+            fps_list.append(fps)
 
-            with lock:
-                last_frame = frame.copy()
-            # if process.stdin:
-            #     try:
-            #         process.stdin.write(frame.tobytes())
-            #     except BrokenPipeError:
-            #         print("FFmpeg stdin закрыт (Broken pipe)")
+            if f:
+                segment_number += 1
+                print(vid_path)
+                for frame in frames:
+                    video_writer.write(frame)
+                frames = frames[-20:]
+                f = 0
+                # vid_path = os.path.join("./scrincast", f"video{segment_number}.mp4")
+                # video_writer = cv2.VideoWriter(vid_path, fourcc, 30, (640, 480))
+
+            # with lock:
+            #     last_frame = frame.copy()
 
 
         for k in self.actions.keys():
@@ -366,8 +358,9 @@ class GameController(QThread):
                 else:
                     self.press_combination(key, 0)
 
-        # process.stdin.close()
-        # process.wait()
+        plt.figure(figsize=(10, 10))
+        plt.plot(fps_list)
+        plt.savefig("./scrincast/graph.png")
         self.cleanup()
 
     def action_predict(self, data):

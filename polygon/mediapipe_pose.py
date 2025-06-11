@@ -1,3 +1,5 @@
+import random
+
 import cv2
 import numpy as np
 import torch
@@ -6,11 +8,12 @@ import time
 
 from train_model_utils import extract_keypoints, LSTMModel, predict, walk_predict, turn_predict
 
+
 mp_pose = mp.solutions.pose
 pose = mp_pose.Pose(
     static_image_mode=False,
     model_complexity=1,
-    smooth_landmarks=False,
+    smooth_landmarks=True,
     enable_segmentation=False,
     min_detection_confidence=0.5,
     min_tracking_confidence=0.7
@@ -18,19 +21,16 @@ pose = mp_pose.Pose(
 mp_drawing = mp.solutions.drawing_utils
 
 
-actions = np.array(["Удар левой"
-                        ,"Удар правой"
-                        ,"Двуручный удар"
-                        ,"Блок щитом"
-                        ,"Удар щитом"
-                        ,"Блок оружием"
-                        ,"Удар оружием"
-                        ,"Атака магией с левой руки"
-                        ,"Атака магией с правой руки"
-                        ,"Использование магии с левой руки"
-                        ,"Использование магии с правой руки"
-                        ,"Выстрел из лука"
-                        ,"Бездействие"])
+actions = np.array(["Удар левой",
+                            "Удар правой",
+                            "Двуручный удар",
+                            "Блок щитом",
+                            "Удар щитом",
+                            "Атака магией с левой руки",
+                            "Атака магией с правой руки",
+                            "Использование магии с левой руки",
+                            "Использование магии с правой руки",
+                            "Бездействие"])
 label_map = {action: idx for idx, action in enumerate(actions)}
 invers_label_map = {idx: action for idx, action in enumerate(actions)}
 num_classes = len(actions)
@@ -40,10 +40,6 @@ walk_actions = np.array(
 walk_label_map = {action: idx for idx, action in enumerate(walk_actions)}
 invers_walk_label_map = {idx: action for idx, action in enumerate(walk_actions)}
 
-turn_actions = np.array(
-        ["Поворот направо", "Поворот налево", "Поворот вверх", "Поворот вниз", "Бездействие"])
-turn_label_map = {action: idx for idx, action in enumerate(turn_actions)}
-invers_turn_label_map = {idx: action for idx, action in enumerate(turn_actions)}
 non_arm_indices = [
         0,
         1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
@@ -52,22 +48,17 @@ non_arm_indices = [
     ]
 INPUT_DIM = len(non_arm_indices)*4
 num_walk_classes = len(walk_actions)
-num_turn_classes = len(turn_actions)
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(device)
 
 model = LSTMModel(33*4, hidden_dim=128, output_dim=num_classes).to(device)
-model.load_state_dict(torch.load("checkpoints/experiment_global3.2/best_model.pth"))
+model.load_state_dict(torch.load("checkpoints/experiment_global4/best_model.pth"))
 model.eval()
 
 walk_model = LSTMModel(INPUT_DIM, hidden_dim=128, output_dim=num_walk_classes, dropout=0.1).to(device)
 walk_model.load_state_dict(torch.load("checkpoints/run_model_experiment_global3.2/best_model.pth"))
 walk_model.eval()
-
-turn_model = LSTMModel(INPUT_DIM, hidden_dim=128, output_dim=num_turn_classes, dropout=0.1).to(device)
-turn_model.load_state_dict(torch.load("checkpoints/turn_model_experiment_global3.1/best_model.pth"))
-turn_model.eval()
 
 cap = cv2.VideoCapture(1, cv2.CAP_DSHOW)
 sequence1 = []
@@ -75,12 +66,12 @@ sequence2 = []
 prev_time = time.time()
 pred = []
 walk_pred = walk_label_map["Бездействие"]
-turn_pred = turn_label_map["Бездействие"]
 while cap.isOpened():
     ret, frame = cap.read()
     if not ret:
         break
 
+    time.sleep(random.uniform(0.02, 0.05))
     frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
 
     results = pose.process(frame_rgb)
@@ -93,18 +84,16 @@ while cap.isOpened():
     sequence1.append(keypoints1)
     sequence2.append(keypoints2)
 
-    if len(sequence1) == 30:
+    if len(sequence1) == 15:
         # cv2.putText(frame, f"O", (500, 100),
         #             cv2.FONT_HERSHEY_SIMPLEX, 5, (0, 255, 0), 5)
         with torch.no_grad():
             res = predict(model, np.expand_dims(sequence1, axis=0), device)[0]
             walk_res = walk_predict(walk_model, np.expand_dims(sequence2, axis=0), device)[0]
-            turn_res = turn_predict(turn_model, np.expand_dims(sequence2, axis=0), device)[0]
         pred = torch.where(res == 1)[0].cpu()
         walk_pred = walk_res
-        turn_pred = turn_res
-        sequence1 = sequence1[-20:]
-        sequence2 = sequence2[-20:]
+        sequence1 = sequence1[-10:]
+        sequence2 = sequence2[-10:]
 
     curr_time = time.time()
     fps = 1 / (curr_time - prev_time)
@@ -125,8 +114,6 @@ while cap.isOpened():
         clrs = {"Поворот направо": (0, 255, 0), "Поворот налево": (255, 0, 0), "Поворот вверх": (0, 0, 255), "Поворот вниз": (32, 100, 100), "Бездействие": (0, 0, 0)}
         cv2.putText(frame, f"{invers_walk_label_map[walk_pred]}", (x, y),
                     cv2.FONT_HERSHEY_COMPLEX, 2, (0, 255, 0), 2)
-        cv2.putText(frame, f"{invers_turn_label_map[turn_pred]}", (tx, ty),
-                    cv2.FONT_HERSHEY_COMPLEX, 2, clrs[invers_turn_label_map[turn_pred]], 2)
         mp_drawing.draw_landmarks(frame, results.pose_landmarks, mp_pose.POSE_CONNECTIONS)
     cv2.imshow("Pose Detection", frame)
 
