@@ -12,8 +12,8 @@ from train_model_utils import ActionDataset, LSTMModel, data_load_and_separate, 
 
 if __name__ == "__main__":
     DATA_PATH = 'VidData'
-    log_dir = f"runs/experiment_global4"
-    best_model_path = f"checkpoints/experiment_global4"
+    log_dir = f"runs/experiment_global4.1"
+    best_model_path = f"checkpoints/experiment_global4.1"
     os.makedirs(best_model_path, exist_ok=True)
     SEQUENCE_LENGTH = 30
     INPUT_DIM = 33*4

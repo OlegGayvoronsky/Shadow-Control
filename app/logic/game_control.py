@@ -274,7 +274,7 @@ class GameController(QThread):
             self.sequence2.append(keypoints2)
             points, distances, angle1, angle2 = self.algebra_calculate(results, points, distances)
 
-            if len(distances) == 20:
+            if len(distances) == 15:
                 jump, sit = self.is_jump_or_sit(distances, points)
                 f_jump = self.walk_actions["Прыжок"][1]
                 f_sit = self.walk_actions["Сесть"][1]
@@ -285,7 +285,7 @@ class GameController(QThread):
                     self.walk_actions["Сесть"][1] = sit
                     self.press_combination(self.walk_actions["Сесть"][0], sit)
 
-            if len(self.sequence1) == 30:
+            if len(self.sequence1) == 15:
                 f = 1
                 with torch.no_grad():
                     action_res = self.action_predict(np.expand_dims(self.sequence1, axis=0))[0]
@@ -294,8 +294,8 @@ class GameController(QThread):
                 self.handle_prediction(action_res, walk_res)
                 pred = torch.where(action_res == 1)[0].cpu().tolist()
                 walk_pred = walk_res
-                self.sequence1 = self.sequence1[-20:]
-                self.sequence2 = self.sequence2[-20:]
+                self.sequence1 = self.sequence1[-10:]
+                self.sequence2 = self.sequence2[-10:]
 
             # self.move_mouse_by_head_angles(angle1, angle2)
 
@@ -333,7 +333,7 @@ class GameController(QThread):
                 print(vid_path)
                 for frame in frames:
                     video_writer.write(frame)
-                frames = frames[-20:]
+                frames = frames[-10:]
                 f = 0
                 # vid_path = os.path.join("./scrincast", f"video{segment_number}.mp4")
                 # video_writer = cv2.VideoWriter(vid_path, fourcc, 30, (640, 480))
