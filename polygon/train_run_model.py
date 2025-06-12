@@ -12,8 +12,8 @@ from train_model_utils import ActionDataset, LSTMModel, data_load_and_separate, 
 
 if __name__ == "__main__":
     DATA_PATH = 'VidData_run'
-    log_dir = f"runs/run_model_experiment_global4.1"
-    best_model_path = f"checkpoints/run_model_experiment_global4.1"
+    log_dir = f"runs/run_model_experiment_global4.2"
+    best_model_path = f"checkpoints/run_model_experiment_global4.2"
     os.makedirs(best_model_path, exist_ok=True)
     non_arm_indices = [
         0,

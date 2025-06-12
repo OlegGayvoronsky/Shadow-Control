@@ -6,7 +6,7 @@ import torch
 import mediapipe as mp
 import time
 
-from train_model_utils import extract_keypoints, LSTMModel, predict, walk_predict, turn_predict
+from train_model_utils import extract_keypoints, LSTMModel, predict, walk_predict
 
 
 mp_pose = mp.solutions.pose
@@ -57,7 +57,7 @@ model.load_state_dict(torch.load("checkpoints/experiment_global4.1/best_model.pt
 model.eval()
 
 walk_model = LSTMModel(INPUT_DIM, hidden_dim=128, output_dim=num_walk_classes, dropout=0).to(device)
-walk_model.load_state_dict(torch.load("checkpoints/run_model_experiment_global4.1/best_model.pth"))
+walk_model.load_state_dict(torch.load("checkpoints/run_model_experiment_global4.2/best_model.pth"))
 walk_model.eval()
 
 cap = cv2.VideoCapture(1, cv2.CAP_DSHOW)

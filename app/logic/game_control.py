@@ -88,8 +88,7 @@ class GameController(QThread):
 
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model = self.load_model(model_path, len(self.actions.keys()), 33*4, 0.3)
-        self.walk_model = self.load_model(walk_model_path, len(self.walk_actions.keys()) - 2, 23*4, 0.1)
-        self.turn_model = self.load_model(turn_model_path, len(self.turn_actions.keys()), 23*4, 0.1)
+        self.walk_model = self.load_model(walk_model_path, len(self.walk_actions.keys()) - 2, 23*4, 0)
         self.cap = cv2.VideoCapture(camera_index, cv2.CAP_DSHOW)
 
         self.sequence1 = []
@@ -103,8 +102,10 @@ class GameController(QThread):
         return model
 
     def press_combination(self, combo, mode):
+        print(combo, mode)
         keys = combo.lower().split('+')
         for key in keys:
+            key = key.strip()
             if mode:
                 pdi.keyDown(key)
             else:

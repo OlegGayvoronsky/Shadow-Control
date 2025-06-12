@@ -93,6 +93,7 @@ class KeyBindingLineEdit(QLineEdit):
         self.recording_started = False
         self.awaiting_first_release = False
         self.pressed_mouse_buttons = []
+        self.current_keys = set()
         self.default_style = self.styleSheet()
 
     def startRecording(self):
@@ -129,16 +130,28 @@ class KeyBindingLineEdit(QLineEdit):
         if not self.recording_started:
             return
 
-        modifiers = []
-        if event.modifiers() & Qt.ControlModifier:
-            modifiers.append("Ctrl")
-        if event.modifiers() & Qt.ShiftModifier:
-            modifiers.append("Shift")
-        if event.modifiers() & Qt.AltModifier:
-            modifiers.append("Alt")
-
         key = event.key()
-        key_name = QKeySequence(key).toString()
+        self.current_keys.add(key)
+        self._update_key_text()
+
+    def keyReleaseEvent(self, event: QKeyEvent):
+        key = event.key()
+        if key in self.current_keys:
+            self.current_keys.remove(key)
+
+        if self.recording_started and not self.current_keys:
+            self.stopRecording()
+
+    def _update_key_text(self):
+        if not self.current_keys:
+            return
+
+        keys_text = []
+        modifiers_map = {
+            Qt.Key_Control: "Ctrl",
+            Qt.Key_Shift: "Shift",
+            Qt.Key_Alt: "Alt",
+        }
 
         special_keys = {
             Qt.Key_Space: "Space",
@@ -154,12 +167,17 @@ class KeyBindingLineEdit(QLineEdit):
             Qt.Key_Down: "Down Arrow",
         }
 
-        key_str = special_keys.get(key, key_name)
-        if key_str and key_str not in modifiers and key_str != "Control":
-            modifiers.append(key_str)
+        for key in sorted(self.current_keys):
+            if key in modifiers_map:
+                keys_text.append(modifiers_map[key])
+            elif key in special_keys:
+                keys_text.append(special_keys[key])
+            else:
+                text = QKeySequence(key).toString()
+                if text:
+                    keys_text.append(text.upper())
 
-        self.setText("+".join(modifiers))
-        self.stopRecording()
+        self.setText(" + ".join(keys_text))
 
     def mousePressEvent(self, event: QMouseEvent):
         if not self.recording_started:
@@ -569,7 +587,7 @@ class GameMenu(QWidget):
                          walk_actions=walk_actions,
                          turn_actions=turn_actions,
                          action_model_path=self.global_game_folder / "checkpoints" / model / "best_model.pth",
-                         walk_model_path=self.run_turn_model_pth / "run_model2" / "best_model.pth",
+                         walk_model_path=self.run_turn_model_pth / "run_model4" / "best_model.pth",
                          turn_model_path=self.run_turn_model_pth / "turn_model2" / "best_model.pth")
 
     def open_edit_dialog(self):

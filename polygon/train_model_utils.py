@@ -194,13 +194,3 @@ def walk_predict(model, data, device):
     if v >= 0.9:
         return [i.item()]
     return [5]
-
-def turn_predict(model, data, device):
-    if not isinstance(data, torch.Tensor):
-        data = torch.from_numpy(data).float()
-    data = data.to(device)
-    pred = torch.sigmoid(model(data))[0]
-    v, i = torch.max(pred, dim=0)
-    if v >= 0.9:
-        return [i.item()]
-    return [4]
