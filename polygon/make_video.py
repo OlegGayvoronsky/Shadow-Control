@@ -148,10 +148,10 @@ if __name__ == "__main__":
         os.makedirs(DATA_PATH, exist_ok=True)
 
         actions = np.array(
-        ["Бездействие"])
-        no_sequences = 50
+        ["Ходьба вперед", "Бег вперед"])
+        no_sequences = 100
         sequence_length = 30
-        start_folder = 101
+        start_folder = 1
 
         setup_folders(DATA_PATH, actions, no_sequences)
         collect_keypoints(actions, start_folder, no_sequences, DATA_PATH, 2)

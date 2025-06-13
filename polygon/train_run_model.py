@@ -12,8 +12,8 @@ from train_model_utils import ActionDataset, LSTMModel, data_load_and_separate, 
 
 if __name__ == "__main__":
     DATA_PATH = 'VidData_run'
-    log_dir = f"runs/run_model_experiment_global4.2"
-    best_model_path = f"checkpoints/run_model_experiment_global4.2"
+    log_dir = f"runs/run_model_experiment_global4.4"
+    best_model_path = f"checkpoints/run_model_experiment_global4.4"
     os.makedirs(best_model_path, exist_ok=True)
     non_arm_indices = [
         0,
@@ -43,7 +43,7 @@ if __name__ == "__main__":
     train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
     test_loader = DataLoader(test_dataset, batch_size=BATCH_SIZE, shuffle=False)
 
-    model = LSTMModel(INPUT_DIM, hidden_dim=128, output_dim=num_classes, dropout=0).to(device)
+    model = LSTMModel(INPUT_DIM, hidden_dim=128, output_dim=num_classes, dropout=0.05).to(device)
     criterion = nn.BCEWithLogitsLoss()
     optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
     accuracy = Accuracy(task='multilabel', num_labels=num_classes).to(device)
