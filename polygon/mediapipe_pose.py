@@ -36,7 +36,7 @@ invers_label_map = {idx: action for idx, action in enumerate(actions)}
 num_classes = len(actions)
 
 walk_actions = np.array(
-        ["Ходьба вперед", "Ходьба назад", "Ходьба влево", "Ходьба вправо", "Бег вперед", "Бездействие"])
+        ["вперед", "назад", "влево", "вправо", "Бег вперед", "Бездействие"])
 walk_label_map = {action: idx for idx, action in enumerate(walk_actions)}
 invers_walk_label_map = {idx: action for idx, action in enumerate(walk_actions)}
 
@@ -57,7 +57,7 @@ model.load_state_dict(torch.load("checkpoints/experiment_global4.1/best_model.pt
 model.eval()
 
 walk_model = LSTMModel(INPUT_DIM, hidden_dim=128, output_dim=num_walk_classes, dropout=0).to(device)
-walk_model.load_state_dict(torch.load("checkpoints/run_model_experiment_global4.4/best_model.pth"))
+walk_model.load_state_dict(torch.load("checkpoints/run_model_experiment_global4.6/best_model.pth"))
 walk_model.eval()
 
 cap = cv2.VideoCapture(1, cv2.CAP_DSHOW)

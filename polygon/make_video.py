@@ -148,7 +148,7 @@ if __name__ == "__main__":
         os.makedirs(DATA_PATH, exist_ok=True)
 
         actions = np.array(
-        ["Ходьба вперед", "Бег вперед"])
+        ["Ходьба назад"])
         no_sequences = 100
         sequence_length = 30
         start_folder = 1
