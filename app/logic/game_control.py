@@ -149,14 +149,10 @@ class GameController(QThread):
                     self.press_combination(key, mode)
 
     def move_mouse_by_head_angles(self, vertical_angle, horizontal_angle, sens=0.1):
-        if abs(horizontal_angle) < 5:
+        if abs(horizontal_angle) < 0.8:
             horizontal_angle = 0
         else:
             horizontal_angle = 10 * horizontal_angle / abs(horizontal_angle)
-        if horizontal_angle != 0 or 0 <= vertical_angle < 8 or -3 < vertical_angle < 0:
-            vertical_angle = 0
-        elif not (0 <= vertical_angle < 8 or -3 < vertical_angle < 0):
-            vertical_angle = 10 * vertical_angle / abs(vertical_angle)
 
         # Смещения по осям
         dx = int(horizontal_angle * sens)
@@ -192,10 +188,10 @@ class GameController(QThread):
         points.append(pt[11])
         points = points[-15:]
 
-        l_sh = np.array([x_vals[11], y_vals[11], z_vals[11]])
-        r_sh = np.array([x_vals[12], y_vals[12], z_vals[12]])
-        l_hip = np.array([x_vals[23], y_vals[23], z_vals[23]])
-        r_hip = np.array([x_vals[24], y_vals[24], z_vals[24]])
+        l_sock = np.array([pt[31].x, pt[31].y])
+        r_sock = np.array([pt[32].x, pt[32].y])
+        l_heel = np.array([pt[29].x, pt[29].y])
+        r_heel = np.array([pt[30].x, pt[30].y])
         l_sh2d = np.array([pt[11].x, pt[11].y])
         r_sh2d = np.array([pt[12].x, pt[12].y])
         l_hip2d = np.array([pt[23].x, pt[23].y])
@@ -206,37 +202,19 @@ class GameController(QThread):
         distances.append(distance)
         distances = distances[-15:]
 
-        hip_center = (l_hip + r_hip) / 2
-        shoulder_center = (l_sh + r_sh) / 2
-        torso_vector = shoulder_center - hip_center
-        if np.linalg.norm(torso_vector) != 0:
-            torso_vector /= np.linalg.norm(torso_vector)
-        shoulder_vector = l_sh - r_sh
-        torso_forward = -np.cross(shoulder_vector, y)
-        if np.linalg.norm(torso_forward) != 0:
-            torso_forward /= np.linalg.norm(torso_forward)
+        l_foot = l_sock - l_heel
+        if np.linalg.norm(l_foot) != 0:
+            l_foot /= np.linalg.norm(l_foot)
 
-        angle2 = degrees(atan2(torso_forward[0], torso_forward[2])) - 2
-        angle1 = degrees(atan2(torso_vector[1], torso_vector[2])) - 15
+        r_foot = r_sock - r_heel
+        if np.linalg.norm(r_foot) != 0:
+            r_foot /= np.linalg.norm(r_foot)
 
-        l_hand = np.array([x_vals[15], y_vals[15], z_vals[15]])
-        r_hand = np.array([x_vals[16], y_vals[16], z_vals[16]])
-
-        torso_length = np.linalg.norm(shoulder_center - hip_center)
-        dist_l = np.linalg.norm(l_hand - l_hip)
-        dist_r = np.linalg.norm(r_hand - r_hip)
-        if torso_length != 0:
-            dist_l /= torso_length
-            dist_r /= torso_length
-
-        lr_hip_threshold = 0.5
-        ud_hip_threshold = 0.5
-        lr_hand_on_hip = dist_l <= lr_hip_threshold or dist_r <= lr_hip_threshold
-        ud_hand_on_hip = dist_l <= ud_hip_threshold or dist_r <= ud_hip_threshold
-        if not lr_hand_on_hip:
-            angle2 = 0
-        if not ud_hand_on_hip:
-            angle1 = 0
+        l_angle = np.dot(l_foot, [1, 0])
+        r_angle = np.dot(r_foot, [1, 0])
+        range = abs(l_angle - r_angle)
+        angle2 = max(l_angle, r_angle) if range < 0.1 else 0
+        angle1 = 0
 
         return points, distances, angle1, angle2
 
@@ -304,7 +282,7 @@ class GameController(QThread):
                 self.sequence1 = self.sequence1[-10:]
                 self.sequence2 = self.sequence2[-10:]
 
-            # self.move_mouse_by_head_angles(angle1, angle2)
+            self.move_mouse_by_head_angles(angle1, angle2)
 
             for i, lbl in enumerate(pred):
                 label_name = self.invers_label_map[lbl]

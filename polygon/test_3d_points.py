@@ -6,6 +6,7 @@ import mediapipe as mp
 import time
 from matplotlib import pyplot as plt
 from train_model_utils import extract_keypoints, LSTMModel, predict
+from math import atan2, degrees
 
 
 def set_natural_arm_pose(landmarks, hand='left'):
@@ -133,24 +134,22 @@ while cap.isOpened():
     ax.view_init(elev=15, azim=70)
 
     if results.pose_world_landmarks:
-        landmarks = results.pose_world_landmarks.landmark
-        x_vals = [-lm.x for lm in landmarks]
-        z_vals = [-lm.y for lm in landmarks]
-        y_vals = [-lm.z for lm in landmarks]
+        y = np.array([0, 1, 0])
 
-        #2d токи носа
+        landmarks = results.pose_world_landmarks.landmark
+
+        x_vals = [-lm.x for lm in landmarks]
+        y_vals = [-lm.z for lm in landmarks]
+        z_vals = [-lm.y for lm in landmarks]
+
         pt = results.pose_landmarks.landmark
         points.append(pt[11])
         points = points[-15:]
 
-        #3d токи
-        nose = np.array([x_vals[0], y_vals[0], z_vals[0]])
-        l_ear = np.array([x_vals[7], y_vals[7], z_vals[7]])
-        r_ear = np.array([x_vals[8], y_vals[8], z_vals[8]])
-        l_sh = np.array([x_vals[11], y_vals[11], z_vals[11]])
-        r_sh = np.array([x_vals[12], y_vals[12], z_vals[12]])
-        l_hip = np.array([x_vals[23], y_vals[23], z_vals[23]])
-        r_hip = np.array([x_vals[24], y_vals[24], z_vals[24]])
+        l_sock = np.array([pt[31].x, pt[31].y])
+        r_sock = np.array([pt[32].x, pt[32].y])
+        l_heel = np.array([pt[29].x, pt[29].y])
+        r_heel = np.array([pt[30].x, pt[30].y])
         l_sh2d = np.array([pt[11].x, pt[11].y])
         r_sh2d = np.array([pt[12].x, pt[12].y])
         l_hip2d = np.array([pt[23].x, pt[23].y])
@@ -160,30 +159,20 @@ while cap.isOpened():
         distance = np.linalg.norm(distance)
         distances.append(distance)
         distances = distances[-15:]
-        k_frames += 1
-        if k_frames > 15:
-            k_frames = 15
 
-        spine = (l_sh + r_sh) / 2 - (l_hip + r_hip) / 2
-        spine[1] = 0
-        norms = np.linalg.norm(spine)
-        if norms != 0: spine /= norms
+        l_foot = l_sock - l_heel
+        if np.linalg.norm(l_foot) != 0:
+            l_foot /= np.linalg.norm(l_foot)
 
-        head = (l_ear + r_ear) / 2
-        vision1, vision2 = nose - head, nose - head
-        vision1[0] = 0
-        vision2[2] = 0
-        norm1 = np.linalg.norm(vision1)
-        norm2 = np.linalg.norm(vision2)
-        if norm1 != 0: vision1 /= norm1
-        if norm2 != 0: vision2 /= norm2
-        angle1 = degrees(acos(vision1 @ z))
-        angle2 = degrees(acos(vision2 @ x))
-        if abs(degrees(acos(spine @ z))) > 3:
-            angle1 = 100
-            angle2 = 90
-        angle1 -= 100
-        angle2 -= 90
+        r_foot = r_sock - r_heel
+        if np.linalg.norm(r_foot) != 0:
+            r_foot /= np.linalg.norm(r_foot)
+
+        l_angle = np.dot(l_foot, [1, 0])
+        r_angle = np.dot(r_foot, [1, 0])
+        range = abs(l_angle - r_angle)
+        angle2 = max(l_angle, r_angle) if range < 0.1 else 0
+
 
         ax.scatter(x_vals, y_vals, z_vals, c='r')
         for connection in mp_pose.POSE_CONNECTIONS:
@@ -201,7 +190,6 @@ while cap.isOpened():
     sit = False
     if k_frames == 15:
         jump, sit = is_jump_or_sit(distances, points)
-        print(jump, sit)
     cv2.putText(frame, f"fps:{round(fps)}", (10, 30),
                 cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
     # cv2.putText(frame, f"a1: {int(angle1)}", (10, 130),
@@ -214,7 +202,7 @@ while cap.isOpened():
         h, w, _ = frame.shape
         jx, sx = int(jp.x * w), int(sp.x * w)
         jy, sy = int(jp.y * h), int(sp.y * h)
-        cv2.putText(frame, f"{points[-1].y}", (jx, jy),
+        cv2.putText(frame, f"{angle2}", (jx, jy),
                     cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 255, 0), 2)
         cv2.putText(frame, f"", (sx, sy),
                     cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 0, 255), 2)
