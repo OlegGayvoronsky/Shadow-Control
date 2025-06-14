@@ -102,7 +102,6 @@ class GameController(QThread):
         return model
 
     def press_combination(self, combo, mode):
-        print(combo, mode)
         keys = combo.lower().split('+')
         for key in keys:
             key = key.strip()
@@ -121,7 +120,7 @@ class GameController(QThread):
         pred = torch.where(action_res == 1)[0].cpu().tolist()
         walk_pred = walk_res
 
-        walk_action = self.invers_walk_label_map[walk_pred[0]]
+        walk_action = self.invers_walk_label_map[walk_pred]
         for w_act in self.walk_actions:
             if(w_act == "Бездействие" or w_act == "Прыжок" or w_act == "Сесть"):
                 continue
@@ -166,16 +165,17 @@ class GameController(QThread):
         # Плавное движение мыши
         pdi.moveRel(round(dx), round(dy))
 
-
     def is_jump_or_sit(self, distances, points):
         jump = False
         sit = False
-        f1 = -(points[-1].y - points[0].y) > 0.1
-        f2 = abs(distances[-1] - distances[0]) <= 0.01
+        f1 = points[-1].y < 0.14
+        f2 = abs(distances[-1] - distances[0]) <= 0.02
         if f1 and f2:
             jump = True
 
-        if distances[-1] < 0.35:
+        f1 = points[-1].y > 0.43
+        f2 = distances[-1] < 0.35
+        if f1 and f2:
             sit = True
         return jump, sit
 
@@ -188,21 +188,26 @@ class GameController(QThread):
         y_vals = [-lm.z for lm in landmarks]
         z_vals = [-lm.y for lm in landmarks]
 
-        points.append(results.pose_landmarks.landmark[0])
-        points = points[-20:]
+        pt = results.pose_landmarks.landmark
+        points.append(pt[11])
+        points = points[-15:]
 
         l_sh = np.array([x_vals[11], y_vals[11], z_vals[11]])
         r_sh = np.array([x_vals[12], y_vals[12], z_vals[12]])
         l_hip = np.array([x_vals[23], y_vals[23], z_vals[23]])
         r_hip = np.array([x_vals[24], y_vals[24], z_vals[24]])
+        l_sh2d = np.array([pt[11].x, pt[11].y])
+        r_sh2d = np.array([pt[12].x, pt[12].y])
+        l_hip2d = np.array([pt[23].x, pt[23].y])
+        r_hip2d = np.array([pt[24].x, pt[24].y])
 
-        shoulder_center = (l_sh + r_sh) / 2
+        distance = (l_sh2d + r_sh2d) / 2 - (l_hip2d + r_hip2d) / 2
+        distance = np.linalg.norm(distance)
+        distances.append(distance)
+        distances = distances[-15:]
+
         hip_center = (l_hip + r_hip) / 2
-        distance = shoulder_center - hip_center
-        distance[1] = 0
-        distances.append(np.linalg.norm(distance))
-        distances = distances[-20:]
-
+        shoulder_center = (l_sh + r_sh) / 2
         torso_vector = shoulder_center - hip_center
         if np.linalg.norm(torso_vector) != 0:
             torso_vector /= np.linalg.norm(torso_vector)
@@ -248,7 +253,8 @@ class GameController(QThread):
         points = []
         distances = []
         pred = []
-        walk_pred = []
+        walk_pred = self.walk_label_map["Бездействие"]
+        prev = self.walk_label_map["Бездействие"]
         segment_number = 0
         f = 0
         frames = []
@@ -290,7 +296,7 @@ class GameController(QThread):
                 f = 1
                 with torch.no_grad():
                     action_res = self.action_predict(np.expand_dims(self.sequence1, axis=0))[0]
-                    walk_res = self.walk_predict(np.expand_dims(self.sequence2, axis=0))
+                    walk_res, prev = self.walk_predict(prev, np.expand_dims(self.sequence2, axis=0))
 
                 self.handle_prediction(action_res, walk_res)
                 pred = torch.where(action_res == 1)[0].cpu().tolist()
@@ -317,7 +323,7 @@ class GameController(QThread):
                             cv2.FONT_HERSHEY_COMPLEX, 2, (255, 0, 0), 2)
                 cv2.putText(frame, f"s: {sit}", (sx, sy),
                             cv2.FONT_HERSHEY_COMPLEX, 2, (0, 0, 255), 2)
-                walk_label = self.invers_walk_label_map[walk_pred[0]] if len(walk_pred) > 0 else ""
+                walk_label = self.invers_walk_label_map[walk_pred]
                 cv2.putText(frame, f"{walk_label}", (x, y),
                             cv2.FONT_HERSHEY_COMPLEX, 2, (0, 255, 0), 2)
 
@@ -371,15 +377,22 @@ class GameController(QThread):
         pred = torch.sigmoid(self.model(data))
         return (pred >= 0.8).int()
 
-    def walk_predict(self, data):
+    def walk_predict(self, prev, data):
         if not isinstance(data, torch.Tensor):
             data = torch.from_numpy(data).float()
         data = data.to(self.device)
         pred = torch.sigmoid(self.walk_model(data))[0]
         v, i = torch.max(pred, dim=0)
+        i = i.item()
         if v >= 0.9:
-            return [i.item()]
-        return [5]
+            if i == 2 or i == 3 or i == 5:
+                if prev == i or prev == 5:
+                    return i, i
+                else:
+                    return prev, i
+            else:
+                return i, i
+        return prev, prev
 
     def turn_predict(self, data):
         if not isinstance(data, torch.Tensor):

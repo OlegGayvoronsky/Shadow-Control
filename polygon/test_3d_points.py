@@ -43,15 +43,17 @@ def is_hand_confident(landmarks, hand='left', threshold=0.3):
 
 
 def is_jump_or_sit(distances, points):
-    jump = "nothing"
-    sit = "nothing"
-    f1 = -(points[-1].y - points[0].y) > 0.1
-    f2 = abs(distances[-1] - distances[0]) <= 0.01
+    jump = False
+    sit = False
+    f1 = points[-1].y < 0.14
+    f2 = abs(distances[-1] - distances[0]) <= 0.02
     if f1 and f2:
-        jump = "jump"
+        jump = True
 
-    if distances[-1] < 0.46:
-        sit = "sit"
+    f1 = points[-1].y > 0.43
+    f2 = distances[-1] < 0.35
+    if f1 and f2:
+        sit = True
     return jump, sit
 
 
@@ -138,8 +140,8 @@ while cap.isOpened():
 
         #2d токи носа
         pt = results.pose_landmarks.landmark
-        points.append(results.pose_landmarks.landmark[11])
-        points = points[-20:]
+        points.append(pt[11])
+        points = points[-15:]
 
         #3d токи
         nose = np.array([x_vals[0], y_vals[0], z_vals[0]])
@@ -149,15 +151,18 @@ while cap.isOpened():
         r_sh = np.array([x_vals[12], y_vals[12], z_vals[12]])
         l_hip = np.array([x_vals[23], y_vals[23], z_vals[23]])
         r_hip = np.array([x_vals[24], y_vals[24], z_vals[24]])
+        l_sh2d = np.array([pt[11].x, pt[11].y])
+        r_sh2d = np.array([pt[12].x, pt[12].y])
+        l_hip2d = np.array([pt[23].x, pt[23].y])
+        r_hip2d = np.array([pt[24].x, pt[24].y])
 
-        distance = (l_sh + r_sh) / 2 - (l_hip + r_hip) / 2
-        distance[1] = 0
+        distance = (l_sh2d + r_sh2d) / 2 - (l_hip2d + r_hip2d) / 2
         distance = np.linalg.norm(distance)
         distances.append(distance)
-        distances = distances[-20:]
+        distances = distances[-15:]
         k_frames += 1
-        if k_frames > 20:
-            k_frames = 20
+        if k_frames > 15:
+            k_frames = 15
 
         spine = (l_sh + r_sh) / 2 - (l_hip + r_hip) / 2
         spine[1] = 0
@@ -192,25 +197,26 @@ while cap.isOpened():
     fps = 1 / (curr_time - prev_time)
     prev_time = curr_time
 
-    jump = "nothing"
-    sit = "nothing"
-    if k_frames == 20:
+    jump = False
+    sit = False
+    if k_frames == 15:
         jump, sit = is_jump_or_sit(distances, points)
+        print(jump, sit)
     cv2.putText(frame, f"fps:{round(fps)}", (10, 30),
                 cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-    cv2.putText(frame, f"a1: {int(angle1)}", (10, 130),
-                cv2.FONT_HERSHEY_SIMPLEX, 3, (0, 0, 0), 2)
-    cv2.putText(frame, f"a2: {int(angle2)}", (10, 230),
-                cv2.FONT_HERSHEY_SIMPLEX, 3, (0, 0, 0), 2)
+    # cv2.putText(frame, f"a1: {int(angle1)}", (10, 130),
+    #             cv2.FONT_HERSHEY_SIMPLEX, 3, (0, 0, 0), 2)
+    # cv2.putText(frame, f"a2: {int(angle2)}", (10, 230),
+    #             cv2.FONT_HERSHEY_SIMPLEX, 3, (0, 0, 0), 2)
     if results.pose_landmarks:
         jp = results.pose_landmarks.landmark[11]
         sp = results.pose_landmarks.landmark[12]
         h, w, _ = frame.shape
         jx, sx = int(jp.x * w), int(sp.x * w)
         jy, sy = int(jp.y * h), int(sp.y * h)
-        cv2.putText(frame, f"j: {jump}", (jx, jy),
+        cv2.putText(frame, f"{points[-1].y}", (jx, jy),
                     cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 255, 0), 2)
-        cv2.putText(frame, f"s: {sit}", (sx, sy),
+        cv2.putText(frame, f"", (sx, sy),
                     cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 0, 255), 2)
     cv2.imshow("Pose Detection", frame)
 

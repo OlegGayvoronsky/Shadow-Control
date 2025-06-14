@@ -57,7 +57,7 @@ model.load_state_dict(torch.load("checkpoints/experiment_global4.1/best_model.pt
 model.eval()
 
 walk_model = LSTMModel(INPUT_DIM, hidden_dim=128, output_dim=num_walk_classes, dropout=0).to(device)
-walk_model.load_state_dict(torch.load("checkpoints/run_model_experiment_global4.6/best_model.pth"))
+walk_model.load_state_dict(torch.load("checkpoints/run_model_experiment_global4.7/best_model.pth"))
 walk_model.eval()
 
 cap = cv2.VideoCapture(1, cv2.CAP_DSHOW)
@@ -66,6 +66,7 @@ sequence2 = []
 prev_time = time.time()
 pred = []
 walk_pred = walk_label_map["Бездействие"]
+prev = walk_label_map["Бездействие"]
 while cap.isOpened():
     ret, frame = cap.read()
     if not ret:
@@ -89,7 +90,7 @@ while cap.isOpened():
         #             cv2.FONT_HERSHEY_SIMPLEX, 5, (0, 255, 0), 5)
         with torch.no_grad():
             res = predict(model, np.expand_dims(sequence1, axis=0), device)[0]
-            walk_res = walk_predict(walk_model, np.expand_dims(sequence2, axis=0), device)[0]
+            walk_res, prev = walk_predict(walk_model, prev, np.expand_dims(sequence2, axis=0), device)
         pred = torch.where(res == 1)[0].cpu()
         walk_pred = walk_res
         sequence1 = sequence1[-10:]

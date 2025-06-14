@@ -185,12 +185,19 @@ def predict(model, data, device):
     return (pred >= 0.8).int()
 
 
-def walk_predict(model, data, device):
+def walk_predict(model, prev, data, device):
     if not isinstance(data, torch.Tensor):
         data = torch.from_numpy(data).float()
     data = data.to(device)
     pred = torch.sigmoid(model(data))[0]
     v, i = torch.max(pred, dim=0)
+    i = i.item()
     if v >= 0.9:
-        return [i.item()]
-    return [5]
+        if i == 2 or i == 3 or i == 5:
+            if prev == i or prev == 5:
+                return i, i
+            else:
+                return prev, i
+        else:
+            return i, i
+    return prev, prev

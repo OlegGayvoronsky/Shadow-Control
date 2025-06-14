@@ -18,7 +18,7 @@ if __name__ == "__main__":
     SEQUENCE_LENGTH = 30
     INPUT_DIM = 33*4
     BATCH_SIZE = 32
-    EPOCHS = 2000
+    EPOCHS = 3000
     LEARNING_RATE = 0.001
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(device)

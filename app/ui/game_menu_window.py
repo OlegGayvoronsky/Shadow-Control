@@ -587,7 +587,7 @@ class GameMenu(QWidget):
                          walk_actions=walk_actions,
                          turn_actions=turn_actions,
                          action_model_path=self.global_game_folder / "checkpoints" / model / "best_model.pth",
-                         walk_model_path=self.run_turn_model_pth / "run_model5" / "best_model.pth",
+                         walk_model_path=self.run_turn_model_pth / "run_model7" / "best_model.pth",
                          turn_model_path=self.run_turn_model_pth / "turn_model2" / "best_model.pth")
 
     def open_edit_dialog(self):
