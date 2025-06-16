@@ -239,7 +239,7 @@ class GameMenu(QWidget):
         self.game_data = game_data
         self.game_folder = game_folder
         self.global_game_folder = Path(__file__).resolve().parent.parent / game_folder
-        self.run_turn_model_pth = Path(__file__).resolve().parent.parent / "run_turn_model"
+        self.run_model_pth = Path(__file__).resolve().parent.parent / "run_model"
         self.settings_path = os.path.join(str(self.global_game_folder), "settings.json").replace("\\", "/")
         if os.path.exists(self.settings_path):
             with open(self.settings_path, "r", encoding="utf-8") as f:
@@ -330,7 +330,6 @@ class GameMenu(QWidget):
         self.setPalette(palette)
 
     def position_gear_button(self, event):
-        # Отступ от правого и нижнего края
         margin = 20
         btn_size = self.settings_button.sizeHint()
         x = self.hero.width() - btn_size.width() - margin
@@ -348,33 +347,27 @@ class GameMenu(QWidget):
         self.layout.addSpacing(10)
         self.set_dark_gradient_background()
 
-        # --- Верхний layout с кнопками и заголовком ---
         header_layout = QHBoxLayout()
         header_layout.setContentsMargins(20, 10, 20, 0)
 
-        # Кнопка "Собрать данные"
         self.collect_data_button = AnimatedButton()
         self.collect_data_button.setIcon(QIcon("assets/folder.png"))
         self.collect_data_button.setToolTip("Подготовить данные для настроек")
         self.collect_data_button.clicked.connect(self.collect_data)
 
-        # Кнопка "Обучить модель"
         self.prepare_model_button = AnimatedButton()
         self.prepare_model_button.setIcon(QIcon("assets/brain.png"))
         self.prepare_model_button.setToolTip("Обучить модель на собранных данных")
         self.prepare_model_button.clicked.connect(self.prepare_model)
 
-        # Заголовок
         title = QLabel("НАСТРОЙКИ")
         title.setStyleSheet("font-size: 20px; font-weight: bold; color: white;")
 
-        # Кнопка "Добавить настройку"
         self.add_setting_button = AnimatedButton()
         self.add_setting_button.setIcon(QIcon("assets/add.png"))
         self.add_setting_button.setToolTip("Добавить настройку")
         self.add_setting_button.clicked.connect(lambda: self.add_setting_row("", ""))
 
-        # Обёртка для title + кнопка "добавить"
         title_with_add_layout = QHBoxLayout()
         title_with_add_layout.setContentsMargins(0, 0, 0, 0)
         title_with_add_layout.setSpacing(8)
@@ -384,7 +377,6 @@ class GameMenu(QWidget):
         title_container = QWidget()
         title_container.setLayout(title_with_add_layout)
 
-        # --- Финальный header ---
         header_layout.addWidget(self.collect_data_button, alignment=Qt.AlignLeft)
         header_layout.addStretch()
         header_layout.addWidget(title_container, alignment=Qt.AlignCenter)
@@ -393,7 +385,6 @@ class GameMenu(QWidget):
 
         self.layout.addLayout(header_layout)
 
-        # --- Контейнер для настроек ---
         self.settings_scroll = QScrollArea()
         self.settings_scroll.setWidgetResizable(True)
 
@@ -480,7 +471,6 @@ class GameMenu(QWidget):
         row_layout.setContentsMargins(0, 0, 0, 0)
         row_layout.setSpacing(0)
 
-        # Поле действия — редактируемое
         action_field = QLineEdit()
         action_field.setPlaceholderText("Действие")
         if action_name != "":
@@ -496,7 +486,6 @@ class GameMenu(QWidget):
             border: none;
         """)
 
-        # Поле клавиши — специальное
         index = self.settings_layout.count() - 1
         key_field = KeyBindingLineEdit(self.settings_path, index)
         key_field.setPlaceholderText("Клавиша")
@@ -576,19 +565,15 @@ class GameMenu(QWidget):
             else:
                 QMessageBox.information(self, "Запуск игры", "Отсутствуют настройки")
                 return
-            turn_actions = {"Поворот направо": ["", False], "Поворот налево": ["", False],
-                            "Поворот вверх": ["", False], "Поворот вниз": ["", False], "Бездействие": ["", True]}
 
             from logic.game_control import GameLauncher
             self.gl = GameLauncher(parent_window=self,
-                         path=Path(__file__).resolve().parent.parent / "mediamtx",
-                         exe_file=exe,
-                         actions=actions,
-                         walk_actions=walk_actions,
-                         turn_actions=turn_actions,
-                         action_model_path=self.global_game_folder / "checkpoints" / model / "best_model.pth",
-                         walk_model_path=self.run_turn_model_pth / "run_model7" / "best_model.pth",
-                         turn_model_path=self.run_turn_model_pth / "turn_model2" / "best_model.pth")
+                                   path=Path(__file__).resolve().parent.parent / "mediamtx",
+                                   exe_file=exe,
+                                   actions=actions,
+                                   walk_actions=walk_actions,
+                                   action_model_path=self.global_game_folder / "checkpoints" / model / "best_model.pth",
+                                   walk_model_path=self.run_model_pth / "run_model7" / "best_model.pth")
 
     def open_edit_dialog(self):
         if self.game_data.get("appid") != -1:

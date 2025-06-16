@@ -51,17 +51,13 @@ class GameController(QThread):
     # frame_signal = Signal(np.ndarray)
     pdi.FAILSAFE = False
 
-    def __init__(self, path, actions, walk_actions, turn_actions, model_path, walk_model_path, turn_model_path, camera_index):
+    def __init__(self, path, actions, walk_actions, model_path, walk_model_path, camera_index):
         super().__init__()
         import mediapipe as mp
 
-        # install_ffmpeg()
         self.paused = False
         self._stop_event = False
 
-        # exe_path = download_mediamtx()
-        # self.server_proc = start_mediamtx(exe_path, path)
-        # time.sleep(2)
         self.mp_pose = mp.solutions.pose
         self.mp_drawing = mp.solutions.drawing_utils
         self.mp_connections = mp.solutions.pose.POSE_CONNECTIONS
@@ -77,15 +73,12 @@ class GameController(QThread):
 
         self.actions = actions
         self.walk_actions = walk_actions
-        self.turn_actions = turn_actions
         self.label_map = {action: idx for idx, action in enumerate(self.actions.keys())}
         self.walk_label_map = {action: idx for idx, action in enumerate(self.walk_actions.keys())
                                if action != "Прыжок" and action != "Сесть"}
-        self.turn_label_map = {action: idx for idx, action in enumerate(self.turn_actions.keys())}
         self.walk_label_map["Бездействие"] = len(self.walk_label_map.keys()) - 1
         self.invers_label_map = {idx: action for idx, action in enumerate(self.actions.keys())}
         self.invers_walk_label_map = {idx: action for action, idx in self.walk_label_map.items()}
-        self.invers_turn_label_map = {idx: action for action, idx in self.turn_label_map.items()}
 
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.model = self.load_model(model_path, len(self.actions.keys()), 33*4, 0.3)
@@ -384,16 +377,6 @@ class GameController(QThread):
                 return i, i
         return prev, prev
 
-    def turn_predict(self, data):
-        if not isinstance(data, torch.Tensor):
-            data = torch.from_numpy(data).float()
-        data = data.to(self.device)
-        pred = torch.sigmoid(self.turn_model(data))[0]
-        v, i = torch.max(pred, dim=0)
-        if v >= 0.9:
-            return [i.item()]
-        return [4]
-
     def cleanup(self):
         self.cap.release()
         cv2.destroyAllWindows()
@@ -408,19 +391,15 @@ class GameController(QThread):
         self.paused = not self.paused
 
 
-
-
 class ControllerThread(QThread):
     controller_ready = Signal()
 
-    def __init__(self, path, action_model_path, walk_model_path, turn_model_path, actions, walk_actions, turn_actions):
+    def __init__(self, path, action_model_path, walk_model_path, actions, walk_actions):
         super().__init__()
         self.action_model_path = action_model_path
         self.walk_model_path = walk_model_path
-        self.turn_model_path = turn_model_path
         self.actions = actions
         self.walk_actions = walk_actions
-        self.turn_actions = turn_actions
         self.path = path
 
     def run(self):
@@ -428,10 +407,8 @@ class ControllerThread(QThread):
             path=self.path,
             model_path=self.action_model_path,
             walk_model_path=self.walk_model_path,
-            turn_model_path=self.turn_model_path,
             actions=self.actions,
             walk_actions=self.walk_actions,
-            turn_actions=self.turn_actions,
             camera_index=1
         )
         self.controller_ready.emit()
@@ -444,7 +421,7 @@ class ControllerThread(QThread):
         self.wait()
 
 class GameLauncher:
-    def __init__(self, parent_window, path, exe_file, actions, walk_actions, turn_actions, action_model_path, walk_model_path, turn_model_path):
+    def __init__(self, parent_window, path, exe_file, actions, walk_actions, action_model_path, walk_model_path):
         self.parent_window = parent_window
         self.exe_file = exe_file
         self.process = None
@@ -452,10 +429,8 @@ class GameLauncher:
         self.controller_thread = ControllerThread(path=path,
                                                   action_model_path=action_model_path,
                                                   walk_model_path=walk_model_path,
-                                                  turn_model_path=turn_model_path,
                                                   actions=actions,
-                                                  walk_actions=walk_actions,
-                                                  turn_actions=turn_actions)
+                                                  walk_actions=walk_actions)
         self.loading_window = LoadingWindow()
         self.launch_game()
         self.controller_thread.controller_ready.connect(self.on_controller_ready)
@@ -481,22 +456,11 @@ class GameLauncher:
         self.pause_shortcut = QShortcut(QKeySequence("Ctrl+P"), self.parent_window)
         self.pause_shortcut.activated.connect(self.toggle_pause)
 
-        # self.cam_shortcut = QShortcut(QKeySequence("Ctrl+C"), self.parent_window)
-        # self.cam_shortcut.activated.connect(self.toggle_camera_window)
-
         self.exit_shortcut = QShortcut(QKeySequence("Ctrl+Q"), self.parent_window)
         self.exit_shortcut.activated.connect(self.show_exit_dialog)
 
     def toggle_pause(self):
         self.controller_thread.controller.toggle_pause()
-
-    # def toggle_camera_window(self):
-    #     if self.camera_window and self.camera_window.isVisible():
-    #         self.camera_window.hide()
-    #     else:
-    #         if not self.camera_window:
-    #             self.camera_window = FloatingCameraWindow(self.controller_thread.controller)
-    #         self.camera_window.show()
 
     def show_exit_dialog(self):
         if self.exit_dialog.exec() and self.camera_window and self.camera_window.isVisible():
@@ -560,66 +524,3 @@ class LoadingWindow(QWidget):
             cp = screen.availableGeometry().center()
             qr.moveCenter(cp)
             self.move(qr.topLeft())
-
-
-# class FloatingCameraWindow(QWidget):
-#     def __init__(self, controller):
-#         super().__init__()
-#
-#         # Окно поверх всех, без рамок
-#         self.setWindowFlags(Qt.WindowStaysOnTopHint | Qt.FramelessWindowHint)
-#
-#         self.controller = controller
-#         self.label = QLabel()
-#         self.label.setFixedSize(640, 480)
-#         self.label.setStyleSheet("background-color: black;")
-#
-#         layout = QVBoxLayout()
-#         layout.setContentsMargins(0, 0, 0, 0)
-#         layout.addWidget(self.label)
-#         self.setLayout(layout)
-#
-#         self.controller.frame_signal.connect(self.update_frame)
-#
-#         self.dragging = False
-#         self.drag_position = None
-#
-#         self.show()  # Показать окно
-#         self.force_stay_on_top()  # Зафиксировать поверх всех окон
-#
-#     def force_stay_on_top(self):
-#         """Принудительно установить окно поверх всех окон через WinAPI"""
-#         hwnd = int(self.winId())  # Получаем HWND окна
-#         HWND_TOPMOST = -1
-#         SWP_NOMOVE = 0x0002
-#         SWP_NOSIZE = 0x0001
-#         SWP_SHOWWINDOW = 0x0040
-#
-#         ctypes.windll.user32.SetWindowPos(
-#             hwnd, HWND_TOPMOST, 0, 0, 0, 0,
-#             SWP_NOMOVE | SWP_NOSIZE | SWP_SHOWWINDOW
-#         )
-#
-#     def update_frame(self, frame):
-#         rgb_image = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-#         h, w, ch = rgb_image.shape
-#         bytes_per_line = ch * w
-#         qt_image = QImage(rgb_image.data, w, h, bytes_per_line, QImage.Format_RGB888)
-#         self.label.setPixmap(QPixmap.fromImage(qt_image))
-#
-#     def mousePressEvent(self, event):
-#         if event.button() == Qt.LeftButton:
-#             self.dragging = True
-#             self.drag_position = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
-#             event.accept()
-#
-#     def mouseMoveEvent(self, event):
-#         if self.dragging and event.buttons() & Qt.LeftButton:
-#             self.move(event.globalPosition().toPoint() - self.drag_position)
-#             event.accept()
-#
-#     def mouseReleaseEvent(self, event):
-#         if event.button() == Qt.LeftButton:
-#             self.dragging = False
-#             event.accept()
-

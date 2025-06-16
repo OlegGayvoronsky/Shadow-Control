@@ -94,7 +94,6 @@ class MainMenu(QWidget):
         top_bar.addWidget(self.add_game_btn)
         main_layout.addLayout(top_bar)
 
-        # Область со скроллом
         self.scroll_area = QScrollArea()
         self.scroll_area.setWidgetResizable(True)
         self.scroll_area.setFrameShape(QScrollArea.NoFrame)

@@ -3,6 +3,7 @@ import os
 import shutil
 from pathlib import Path
 import vdf
+from logic.steam_path_search import get_steam_path
 
 
 class CreateGameFolders:
@@ -10,14 +11,10 @@ class CreateGameFolders:
         self.config_path = Path(__file__).resolve().parent.parent / Path(config_path)
         self.games_dir = Path(__file__).resolve().parent.parent / Path(games_dir)
         self.games_dir.mkdir(exist_ok=True)
-        self.steam_path = self._get_steam_path()
-        self.steamapps = self.steam_path / "steamapps"
-        self.common = self.steamapps / "common"
-        self.librarycache = self.steam_path / "appcache" / "librarycache"
-
-    def _get_steam_path(self):
-        with open(self.config_path, "r", encoding="utf-8") as f:
-            return Path(json.load(f).get("steam_path"))
+        self.steam_path = get_steam_path()
+        self.steamapps = self.steam_path / "steamapps" if self.steam_path is not None else None
+        self.common = self.steamapps / "common" if self.steam_path is not None else None
+        self.librarycache = self.steam_path / "appcache" / "librarycache" if self.steam_path is not None else None
 
     def read_manifest(self, game_folder):
         manifest_path = game_folder / "appmanifest.json"
@@ -27,6 +24,9 @@ class CreateGameFolders:
         return None
 
     def create_folders_from_steam(self):
+        if self.steamapps is None:
+            return
+
         acf_files = list(self.steamapps.glob("appmanifest_*.acf"))
         for file in acf_files:
             try:
