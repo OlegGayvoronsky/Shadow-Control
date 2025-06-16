@@ -95,11 +95,6 @@ model.eval()
 
 
 prev_time = time.time()
-x = np.array([1, 0, 0])
-z = np.array([0, 0, 1])
-spine = z
-angle1 = 0
-angle2 = 0
 
 cap = cv2.VideoCapture(1, cv2.CAP_DSHOW)
 plt.ion()
@@ -110,6 +105,14 @@ k_frames = 0
 points = []
 distances = []
 distance = 0
+x = np.array([1, 0, 0])
+z = np.array([0, 0, 1])
+spine = z
+angle1 = 0
+angle2 = 0
+sh = 0
+hip = 0
+
 while cap.isOpened():
     ret, frame = cap.read()
     if not ret:
@@ -134,7 +137,7 @@ while cap.isOpened():
     ax.view_init(elev=15, azim=70)
 
     if results.pose_world_landmarks:
-        y = np.array([0, 1, 0])
+        y = np.array([0, 0, 1])
 
         landmarks = results.pose_world_landmarks.landmark
 
@@ -154,6 +157,23 @@ while cap.isOpened():
         r_sh2d = np.array([pt[12].x, pt[12].y])
         l_hip2d = np.array([pt[23].x, pt[23].y])
         r_hip2d = np.array([pt[24].x, pt[24].y])
+        l_sh = np.array([x_vals[11], y_vals[11], z_vals[11]])
+        r_sh = np.array([x_vals[12], y_vals[12], z_vals[12]])
+        l_hip = np.array([x_vals[23], y_vals[23], z_vals[23]])
+        r_hip = np.array([x_vals[24], y_vals[24], z_vals[24]])
+
+        spine = (l_sh + r_sh) / 2 - (l_hip + r_hip) / 2
+        if np.linalg.norm(spine) != 0:
+            spine /= np.linalg.norm(spine)
+
+        sh = l_sh2d - r_sh2d
+        if np.linalg.norm(sh) != 0:
+            sh /= np.linalg.norm(sh)
+
+        is_vertical = abs(np.dot(spine, y) - 0.97) <= 0.02
+
+        angle1 = np.dot(sh, [0, 1])
+
 
         distance = (l_sh2d + r_sh2d) / 2 - (l_hip2d + r_hip2d) / 2
         distance = np.linalg.norm(distance)
@@ -202,7 +222,7 @@ while cap.isOpened():
         h, w, _ = frame.shape
         jx, sx = int(jp.x * w), int(sp.x * w)
         jy, sy = int(jp.y * h), int(sp.y * h)
-        cv2.putText(frame, f"{angle2}", (jx, jy),
+        cv2.putText(frame, f"{angle1}", (jx, jy),
                     cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 255, 0), 2)
         cv2.putText(frame, f"", (sx, sy),
                     cv2.FONT_HERSHEY_SIMPLEX, 2, (0, 0, 255), 2)
