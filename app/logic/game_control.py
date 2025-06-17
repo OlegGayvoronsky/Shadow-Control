@@ -421,11 +421,11 @@ class ControllerThread(QThread):
         self.wait()
 
 class GameLauncher:
-    def __init__(self, parent_window, path, exe_file, actions, walk_actions, action_model_path, walk_model_path):
+    def __init__(self, parent_window, path, exe_file, actions, walk_actions, action_model_path, walk_model_path, on_exit_dialog_done=None):
+        self.on_exit_dialog_done = on_exit_dialog_done
         self.parent_window = parent_window
         self.exe_file = exe_file
         self.process = None
-        self.camera_window = None
         self.controller_thread = ControllerThread(path=path,
                                                   action_model_path=action_model_path,
                                                   walk_model_path=walk_model_path,
@@ -463,8 +463,9 @@ class GameLauncher:
         self.controller_thread.controller.toggle_pause()
 
     def show_exit_dialog(self):
-        if self.exit_dialog.exec() and self.camera_window and self.camera_window.isVisible():
-            self.camera_window.hide()
+        result = self.exit_dialog.exec()
+        if self.on_exit_dialog_done:
+            self.on_exit_dialog_done(result)
 
 class ExitDialog(QDialog):
     def __init__(self, controller_thread):

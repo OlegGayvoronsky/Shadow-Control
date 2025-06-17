@@ -491,7 +491,7 @@ class GameMenu(QWidget):
 
         action_field = QLineEdit()
         action_field.setPlaceholderText("Действие")
-        if action_name != "":
+        if action_name:
             action_field.setText(action_name)
         action_field.setFixedHeight(40)
         action_field.setStyleSheet("""
@@ -507,7 +507,7 @@ class GameMenu(QWidget):
         index = self.settings_layout.count() - 1
         key_field = KeyBindingLineEdit(self.settings_path, index)
         key_field.setPlaceholderText("Клавиша")
-        if key_binding != "":
+        if key_binding:
             key_field.setText(key_binding)
         key_field.setFixedHeight(40)
         key_field.setStyleSheet("""
@@ -515,33 +515,63 @@ class GameMenu(QWidget):
             color: white;
             padding-left: 10px;
             min-width: 10px;
-            border-top-right-radius: 5px;
-            border-bottom-right-radius: 5px;
             border: none;
         """)
 
+        delete_button = QPushButton()
+        delete_button.setIcon(QIcon("assets/delete.png"))
+        delete_button.setFixedSize(40, 40)
+        delete_button.setCursor(Qt.PointingHandCursor)
+        delete_button.setStyleSheet("""
+            QPushButton {
+                background-color: #7E22CE;
+                color: white;
+                border: none;
+                font-weight: bold;
+                font-size: 18px;
+            }
+            QPushButton:hover {
+                background-color: #c0392b;
+            }
+        """)
+        delete_button.clicked.connect(lambda: self.remove_setting_row(row_widget, index))
+
         row_layout.addWidget(action_field, 2)
         row_layout.addWidget(key_field, 1)
+        row_layout.addWidget(delete_button)
 
         self.settings_layout.insertWidget(index, row_widget)
 
+    def remove_setting_row(self, row_widget: QWidget, index):
+        if index <= 6:
+            QMessageBox.information(self, "Удаление настройки", "Нельзя удалить настройки движения!")
+            return
+        self.settings_layout.removeWidget(row_widget)
+        row_widget.setParent(None)
+        row_widget.deleteLater()
+
     def save_settings(self):
-        data = {}
+        settings = {}
+
         for i in range(self.settings_layout.count()):
-            row_widget = self.settings_layout.itemAt(i).widget()
-            if row_widget:
-                action_field = row_widget.findChild(QLineEdit)
-                key_field = row_widget.findChild(KeyBindingLineEdit)
-                if action_field and key_field:
+            item = self.settings_layout.itemAt(i)
+            widget = item.widget()
+            if not isinstance(widget, QWidget):
+                continue
+
+            row_layout = widget.layout()
+            if row_layout and row_layout.count() >= 2:
+                action_field = row_layout.itemAt(0).widget()
+                key_field = row_layout.itemAt(1).widget()
+                if isinstance(action_field, QLineEdit) and isinstance(key_field, QLineEdit):
                     action = action_field.text().strip()
                     key = key_field.text().strip()
-                    if key == "Клавиша":
-                        key = ""
-                    data[action] = key
+                    if action and key:
+                        settings[action] = key
 
-        # Записываем данные в файл JSON
+        os.makedirs(os.path.dirname(self.settings_path), exist_ok=True)
         with open(self.settings_path, "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=4)
+            json.dump(settings, f, ensure_ascii=False, indent=4)
 
     def load_settings(self):
         if os.path.exists(self.settings_path):
@@ -586,12 +616,20 @@ class GameMenu(QWidget):
 
             from logic.game_control import GameLauncher
             self.gl = GameLauncher(parent_window=self,
-                                   path=Path(__file__).resolve().parent.parent / "mediamtx",
+                                   path=Path(__file__).resolve().parent.parent,
                                    exe_file=exe,
                                    actions=actions,
                                    walk_actions=walk_actions,
                                    action_model_path=self.global_game_folder / "checkpoints" / model / "best_model.pth",
-                                   walk_model_path=self.run_model_pth / "run_model7" / "best_model.pth")
+                                   walk_model_path=self.run_model_pth / "run_model7" / "best_model.pth",
+                                   on_exit_dialog_done=self.on_exit_result)
+
+    def on_exit_result(self, result):
+        if result:
+            print("Выход подтвержден.")
+            del self.gl
+        else:
+            print("Выход отменен.")
 
     def open_edit_dialog(self):
         if self.game_data.get("appid") != -1:

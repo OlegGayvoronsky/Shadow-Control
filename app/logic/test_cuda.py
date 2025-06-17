@@ -1,30 +1,27 @@
 # import torch
-# import tensorflow as tf
 #
 # print(torch.cuda.is_available())
 # print(torch.cuda.device_count())
 # print(torch.cuda.get_device_name(0))
-# print("Num GPUs Available:", len(tf.config.list_physical_devices('GPU')))
 
-from flask import Flask, Response
-import cv2
+from vosk import Model, KaldiRecognizer
+import sounddevice as sd
+import queue
+import json
 
-app = Flask(__name__)
-cap = cv2.VideoCapture(0)  # или путь к видеофайлу
+model = Model("models/vosk-model-small-ru-0.22")
+rec = KaldiRecognizer(model, 16000)
+q = queue.Queue()
 
-def generate():
+def callback(indata, frames, time, status):
+    q.put(bytes(indata))
+
+with sd.RawInputStream(samplerate=16000, blocksize=8000, dtype='int16',
+                       channels=1, callback=callback):
+    print("Слушаю...")
     while True:
-        success, frame = cap.read()
-        if not success:
-            break
-        _, buffer = cv2.imencode('.jpg', frame)
-        yield (b'--frame\r\n'
-               b'Content-Type: image/jpeg\r\n\r\n' + buffer.tobytes() + b'\r\n')
-
-@app.route('/video')
-def video():
-    return Response(generate(),
-                    mimetype='multipart/x-mixed-replace; boundary=frame')
-
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8080)
+        data = q.get()
+        if rec.AcceptWaveform(data):
+            result = json.loads(rec.Result())
+            text = result.get("text", "")
+            print("Распознано:", text)
