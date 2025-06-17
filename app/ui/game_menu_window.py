@@ -78,7 +78,7 @@ class HeroFrame(QFrame):
             logo_pixmap = QPixmap(logo_path)
             logo_pixmap = logo_pixmap.scaledToHeight(200, Qt.SmoothTransformation)
             logo_rect = logo_pixmap.rect()
-            logo_rect.moveCenter(self.rect().center())  # Центрируем логотип
+            logo_rect.moveCenter(self.rect().center())
             painter.drawPixmap(logo_rect, logo_pixmap)
 
         painter.end()
@@ -616,7 +616,6 @@ class GameMenu(QWidget):
 
             from logic.game_control import GameLauncher
             self.gl = GameLauncher(parent_window=self,
-                                   path=Path(__file__).resolve().parent.parent,
                                    exe_file=exe,
                                    actions=actions,
                                    walk_actions=walk_actions,

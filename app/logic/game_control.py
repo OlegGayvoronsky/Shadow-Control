@@ -2,6 +2,8 @@ import os
 import subprocess
 import threading
 from math import atan2, degrees
+from pathlib import Path
+
 import cv2
 import numpy as np
 from PySide6.QtCore import QThread, Signal, Qt, QSize
@@ -46,17 +48,55 @@ import pydirectinput as pdi
 #     print("Starting Flask server...")
 #     app.run(host='0.0.0.0', port=8080, threaded=True, debug=False, use_reloader=False)
 
+import threading
+import queue
+import json
+from vosk import Model, KaldiRecognizer
+import sounddevice as sd
+
+class VoiceCommandListener(threading.Thread):
+    def __init__(self, model_path: str, callback_fn):
+        super().__init__(daemon=True)
+        self.model = Model(model_path)
+        self.rec = KaldiRecognizer(self.model, 16000)
+        self.q = queue.Queue()
+        self._stop_event = threading.Event()
+        self.callback_fn = callback_fn
+
+    def callback(self, indata, frames, time, status):
+        self.q.put(bytes(indata))
+
+    def run(self):
+        with sd.RawInputStream(samplerate=16000, blocksize=8000, dtype='int16',
+                               channels=1, callback=self.callback):
+            while not self._stop_event.is_set():
+                try:
+                    data = self.q.get(timeout=0.5)
+                except queue.Empty:
+                    continue
+                if self.rec.AcceptWaveform(data):
+                    result = json.loads(self.rec.Result())
+                    text = result.get("text", "")
+                    if text:
+                        self.callback_fn(text)
+
+    def stop(self):
+        self._stop_event.set()
+
 
 class GameController(QThread):
     # frame_signal = Signal(np.ndarray)
     pdi.FAILSAFE = False
 
-    def __init__(self, path, actions, walk_actions, model_path, walk_model_path, camera_index):
+    def __init__(self, actions, walk_actions, model_path, walk_model_path, camera_index):
         super().__init__()
         import mediapipe as mp
 
-        self.paused = False
+        self.paused = True
         self._stop_event = False
+        voice_model_pth = str(Path(__file__).resolve().parent.parent / "run_model" / "vosk-model-small-ru-0.22")
+        self.voice_listener = VoiceCommandListener(voice_model_pth, self.handle_voice_command)
+        self.voice_listener.start()
 
         self.mp_pose = mp.solutions.pose
         self.mp_drawing = mp.solutions.drawing_utils
@@ -88,6 +128,61 @@ class GameController(QThread):
         self.sequence1 = []
         self.sequence2 = []
         self.prev_time = time.time()
+
+    def handle_voice_command(self, text):
+        if "один" in text:
+            self.press_combination("1", True)
+            time.sleep(0.5)
+            self.press_combination("1", False)
+        elif "два" in text:
+            self.press_combination("2", True)
+            time.sleep(0.5)
+            self.press_combination("2", False)
+        elif "три" in text:
+            self.press_combination("3", True)
+            time.sleep(0.5)
+            self.press_combination("3", False)
+        elif "четыре" in text:
+            self.press_combination("4", True)
+            time.sleep(0.5)
+            self.press_combination("4", False)
+        elif "пять" in text:
+            self.press_combination("5", True)
+            time.sleep(0.5)
+            self.press_combination("5", False)
+        elif "шесть" in text:
+            self.press_combination("6", True)
+            time.sleep(0.5)
+            self.press_combination("6", False)
+        elif "семь" in text:
+            self.press_combination("7", True)
+            time.sleep(0.5)
+            self.press_combination("7", False)
+        elif "восемь" in text:
+            self.press_combination("8", True)
+            time.sleep(0.5)
+            self.press_combination("8", False)
+        elif "девять" in text:
+            self.press_combination("9", True)
+            time.sleep(0.5)
+            self.press_combination("9", False)
+        elif "инвентарь" in text:
+            self.press_combination("I", True)
+            self.press_combination("I", False)
+        elif "стоп" in text:
+            self.press_combination("Ctrl+P", True)
+            self.press_combination("Ctrl+P", False)
+            self.press_combination("Esq", True)
+            self.press_combination("Esq", False)
+        elif "старт" in text:
+            self.press_combination("Ctrl+P", True)
+            self.press_combination("Ctrl+P", False)
+        elif "меню" in text:
+            self.press_combination("Esq", True)
+            self.press_combination("Esq", False)
+        elif "конец игры" in text:
+            self.press_combination("Ctrl+Q", True)
+            self.press_combination("Ctrl+Q", False)
 
     def load_model(self, path, output_dim, input_dim, dropout):
         model = LSTMModel(input_dim, hidden_dim=128, output_dim=output_dim, dropout=dropout).to(self.device)
@@ -380,9 +475,11 @@ class GameController(QThread):
     def cleanup(self):
         self.cap.release()
         cv2.destroyAllWindows()
-        # stop_mediamtx(self.server_proc)
 
     def stop(self):
+        if self.voice_listener:
+            self.voice_listener.stop()
+            self.voice_listener.join()
         self._stop_event = True
         self.quit()
         self.wait()
@@ -394,17 +491,15 @@ class GameController(QThread):
 class ControllerThread(QThread):
     controller_ready = Signal()
 
-    def __init__(self, path, action_model_path, walk_model_path, actions, walk_actions):
+    def __init__(self, action_model_path, walk_model_path, actions, walk_actions):
         super().__init__()
         self.action_model_path = action_model_path
         self.walk_model_path = walk_model_path
         self.actions = actions
         self.walk_actions = walk_actions
-        self.path = path
 
     def run(self):
         self.controller = GameController(
-            path=self.path,
             model_path=self.action_model_path,
             walk_model_path=self.walk_model_path,
             actions=self.actions,
@@ -421,20 +516,19 @@ class ControllerThread(QThread):
         self.wait()
 
 class GameLauncher:
-    def __init__(self, parent_window, path, exe_file, actions, walk_actions, action_model_path, walk_model_path, on_exit_dialog_done=None):
+    def __init__(self, parent_window, exe_file, actions, walk_actions, action_model_path, walk_model_path, on_exit_dialog_done=None):
         self.on_exit_dialog_done = on_exit_dialog_done
         self.parent_window = parent_window
         self.exe_file = exe_file
         self.process = None
-        self.controller_thread = ControllerThread(path=path,
-                                                  action_model_path=action_model_path,
+        self.controller_thread = ControllerThread(action_model_path=action_model_path,
                                                   walk_model_path=walk_model_path,
                                                   actions=actions,
                                                   walk_actions=walk_actions)
         self.loading_window = LoadingWindow()
         self.launch_game()
         self.controller_thread.controller_ready.connect(self.on_controller_ready)
-        self.exit_dialog = ExitDialog(self.controller_thread)
+        # self.exit_dialog = ExitDialog(self.controller_thread)
 
     def launch_game(self):
         if not os.path.exists(self.exe_file):
@@ -463,36 +557,37 @@ class GameLauncher:
         self.controller_thread.controller.toggle_pause()
 
     def show_exit_dialog(self):
-        result = self.exit_dialog.exec()
-        if self.on_exit_dialog_done:
-            self.on_exit_dialog_done(result)
-
-class ExitDialog(QDialog):
-    def __init__(self, controller_thread):
-        super().__init__()
-        self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
-        self.setFixedSize(300, 100)
-        self.controller_thread = controller_thread
-
-        layout = QVBoxLayout()
-
-        button_layout = QHBoxLayout()
-
-        exit_button = QPushButton("Выйти")
-        exit_button.clicked.connect(self.exit_game)
-        button_layout.addWidget(exit_button)
-
-        cancel_button = QPushButton("Отмена")
-        cancel_button.clicked.connect(self.reject)
-        button_layout.addWidget(cancel_button)
-
-        layout.addLayout(button_layout)
-        self.setLayout(layout)
-
-    def exit_game(self):
         print("Игра завершена")
         self.controller_thread.stop()
-        self.accept()
+        if self.on_exit_dialog_done:
+            self.on_exit_dialog_done(True)
+
+# class ExitDialog(QDialog):
+#     def __init__(self, controller_thread):
+#         super().__init__()
+#         self.setWindowFlags(Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint)
+#         self.setFixedSize(300, 100)
+#         self.controller_thread = controller_thread
+#
+#         layout = QVBoxLayout()
+#
+#         button_layout = QHBoxLayout()
+#
+#         exit_button = QPushButton("Выйти")
+#         exit_button.clicked.connect(self.exit_game)
+#         button_layout.addWidget(exit_button)
+#
+#         cancel_button = QPushButton("Отмена")
+#         cancel_button.clicked.connect(self.reject)
+#         button_layout.addWidget(cancel_button)
+#
+#         layout.addLayout(button_layout)
+#         self.setLayout(layout)
+#
+#     def exit_game(self):
+#         print("Игра завершена")
+#         self.controller_thread.stop()
+#         self.accept()
 
 class LoadingWindow(QWidget):
     def __init__(self):
