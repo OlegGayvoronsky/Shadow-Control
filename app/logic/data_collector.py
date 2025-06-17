@@ -178,6 +178,38 @@ class DataCollectionWindow(QWidget):
         layout.addWidget(self.toggle_button)
 
         self.setLayout(layout)
+        self.setStyleSheet("""
+            QLabel {
+                color: white;
+            }
+
+            QPushButton {
+                background-color: #7e22ce;
+                color: white;
+                border: none;
+                padding: 8px 16px;
+                border-radius: 8px;
+                font-weight: bold;
+            }
+
+            QPushButton:hover {
+                background-color: #5e1c99;
+            }
+
+            QProgressBar {
+                border: 1px solid #444;
+                border-radius: 6px;
+                text-align: center;
+                height: 26px;
+                background-color: #2e2e2e;
+                font-size: 14px;
+            }
+
+            QProgressBar::chunk {
+                background-color: #7e22ce;
+                border-radius: 6px;
+            }
+        """)
 
         self.thread = DataCollectorThread(actions, start_folder, no_sequences, sequence_length, data_path)
         self.thread.update_frame.connect(self.update_image)

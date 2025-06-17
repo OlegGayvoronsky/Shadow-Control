@@ -21,6 +21,7 @@ class AddGameDialog(QDialog):
         self.cover_path = None
         self.logo_path = None
         self.hero_path = None
+        self.initial_dir = os.path.abspath(os.sep)
 
         layout = QVBoxLayout()
 
@@ -130,12 +131,12 @@ class AddGameDialog(QDialog):
         webbrowser.open(link)
 
     def choose_exe(self):
-        file_path, _ = QFileDialog.getOpenFileName(self, "Выберите .exe файл", "", "Executable (*.exe)")
+        file_path, _ = QFileDialog.getOpenFileName(self, "Выберите .exe файл", self.initial_dir, "Executable (*.exe)")
         if file_path:
             self.exe_input.setText(file_path)
 
     def choose_image(self, image_type):
-        file_path, _ = QFileDialog.getOpenFileName(self, f"Выберите изображение для {image_type}", "",
+        file_path, _ = QFileDialog.getOpenFileName(self, f"Выберите изображение для {image_type}", self.initial_dir,
                                                    "Images (*.jpg *.png *jpeg)")
         if file_path:
             setattr(self, f"{image_type}_path", file_path)

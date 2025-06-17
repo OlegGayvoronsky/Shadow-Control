@@ -397,6 +397,18 @@ class GameMenu(QWidget):
         self.settings_scroll.setWidget(self.settings_widget)
         self.layout.addWidget(self.settings_scroll)
 
+    def delete_empty_folders(self, actions, data_path):
+        for action in actions:
+            action_path = os.path.join(data_path, action)
+
+            if not os.path.exists(action_path):
+                continue
+
+            for folder in os.listdir(action_path):
+                folder_path = os.path.join(action_path, folder)
+                if os.path.isdir(folder_path) and not os.listdir(folder_path):
+                    os.rmdir(folder_path)
+
     def collect_data(self):
         flag = False
         self.save_settings()
@@ -415,16 +427,19 @@ class GameMenu(QWidget):
         dialog = CollectDataDialog(self.settings_path)
         if dialog.exec():
             selected_classes = dialog.get_selected_classes()
+            select_count = dialog.get_count()
 
             if not selected_classes:
                 QMessageBox.warning(self, "Ошибка", "Нужно выбрать хотя бы один класс.")
                 return
 
+            self.delete_empty_folders(selected_classes, self.global_game_folder / "VidData")
+
             from logic.data_collector import DataCollectionWindow
             self.data_collection_window = DataCollectionWindow(
                 data_path=self.global_game_folder / "VidData",
                 actions=selected_classes,
-                no_sequences=50,
+                no_sequences=select_count,
                 sequence_length=30,
                 start_folder=1
             )
@@ -443,7 +458,10 @@ class GameMenu(QWidget):
             data = json.load(f)
             for idx, (action, keys) in enumerate(data.items()):
                 if idx > 6 and " + " not in action:
+                    actions.append(action)
+                elif idx > 6:
                     directories.append(action)
+        self.delete_empty_folders(directories, self.global_game_folder / "VidData")
 
         name = "model_1"
         if os.path.exists(self.global_game_folder / "checkpoints"):

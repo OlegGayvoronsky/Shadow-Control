@@ -54,7 +54,6 @@ class ActionModelTrainer(QThread):
         os.makedirs(self.best_model_path, exist_ok=True)
 
     def run(self):
-        # === Загрузка данных ===
         sequences, labels = [], []
         total_actions = self.num_classes
 
@@ -152,14 +151,12 @@ class TrainingWindow(QWidget):
         self.layout = QVBoxLayout(self)
         self.layout.setAlignment(Qt.AlignCenter)
 
-        # Контейнер для анимации шестерёнки
         self.gear_container = QWidget()
         self.gear_layout = QHBoxLayout(self.gear_container)
-        self.gear_layout.setAlignment(Qt.AlignCenter)  # Центрируем по горизонтали
+        self.gear_layout.setAlignment(Qt.AlignCenter)
         self.gear_layout.setContentsMargins(0, 0, 0, 0)
         self.gear_layout.setSpacing(0)
 
-        # Анимация шестерёнки
         self.gear_label = QLabel()
         self.gear_label.setFixedSize(256, 256)
         self.gear_label.setScaledContents(True)
@@ -171,7 +168,6 @@ class TrainingWindow(QWidget):
         self.gear_layout.addWidget(self.gear_label)
         self.layout.addWidget(self.gear_container)
 
-        # Прогрессбар
         self.progress = QProgressBar(self)
         self.progress.setAlignment(Qt.AlignCenter)
         self.progress.setStyleSheet("""
@@ -188,14 +184,12 @@ class TrainingWindow(QWidget):
         """)
         self.layout.addWidget(self.progress)
 
-        # Финальный текст
         self.final_label = QLabel("Процесс завершён", self)
         self.final_label.setAlignment(Qt.AlignCenter)
         self.final_label.setStyleSheet("font-size: 18px; color: white;")
         self.final_label.setVisible(False)
         self.layout.addWidget(self.final_label)
 
-        # Добавляем кнопку закрытия
         self.close_button = QPushButton(self)
         self.close_button.setIcon(QIcon("assets/close.png"))
         self.close_button.setStyleSheet("""

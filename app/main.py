@@ -22,6 +22,8 @@ if __name__ == "__main__":
         if dialog.exec() != QDialog.Accepted:
             break
 
+        steam_path = get_steam_path()
+
     main_menu = MainMenu()
     main_menu.show()
     sys.exit(app.exec())
