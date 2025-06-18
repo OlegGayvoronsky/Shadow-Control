@@ -54,49 +54,60 @@ import json
 from vosk import Model, KaldiRecognizer
 import sounddevice as sd
 
-class VoiceCommandListener(threading.Thread):
-    def __init__(self, model_path: str, callback_fn):
-        super().__init__(daemon=True)
+class VoiceCommandListener(QThread):
+    command_received = Signal(str)  # можно подключить к слоту
+
+    def __init__(self, model_path: str):
+        super().__init__()
         self.model = Model(model_path)
         self.rec = KaldiRecognizer(self.model, 16000)
         self.q = queue.Queue()
-        self._stop_event = threading.Event()
-        self.callback_fn = callback_fn
+        self._stop_event = False
+        self.stream = None
 
     def callback(self, indata, frames, time, status):
+        if self._stop_event:
+            return
         self.q.put(bytes(indata))
 
     def run(self):
-        with sd.RawInputStream(samplerate=16000, blocksize=8000, dtype='int16',
-                               channels=1, callback=self.callback):
-            while not self._stop_event.is_set():
+        self._stop_event = False
+        with sd.RawInputStream(
+            samplerate=16000,
+            blocksize=8000,
+            dtype='int16',
+            channels=1,
+            callback=self.callback,
+            device=7
+        ) as self.stream:
+            while not self._stop_event:
                 try:
                     data = self.q.get(timeout=0.5)
+                    if self.rec.AcceptWaveform(data):
+                        text = json.loads(self.rec.Result()).get("text", "")
+                        if text:
+                            print(text)
+                            self.command_received.emit(text)
                 except queue.Empty:
                     continue
-                if self.rec.AcceptWaveform(data):
-                    result = json.loads(self.rec.Result())
-                    text = result.get("text", "")
-                    if text:
-                        self.callback_fn(text)
 
     def stop(self):
-        self._stop_event.set()
+        self._stop_event = True
+        self.quit()
+        self.wait()
 
 
 class GameController(QThread):
     # frame_signal = Signal(np.ndarray)
     pdi.FAILSAFE = False
 
-    def __init__(self, actions, walk_actions, model_path, walk_model_path, camera_index):
+    def __init__(self, actions, walk_actions, model_path, walk_model_path, camera_index, exit):
         super().__init__()
         import mediapipe as mp
 
         self.paused = True
         self._stop_event = False
-        voice_model_pth = str(Path(__file__).resolve().parent.parent / "run_model" / "vosk-model-small-ru-0.22")
-        self.voice_listener = VoiceCommandListener(voice_model_pth, self.handle_voice_command)
-        self.voice_listener.start()
+        self.exit = exit
 
         self.mp_pose = mp.solutions.pose
         self.mp_drawing = mp.solutions.drawing_utils
@@ -131,58 +142,69 @@ class GameController(QThread):
 
     def handle_voice_command(self, text):
         if "один" in text:
-            self.press_combination("1", True)
-            time.sleep(0.5)
-            self.press_combination("1", False)
-        elif "два" in text:
-            self.press_combination("2", True)
-            time.sleep(0.5)
-            self.press_combination("2", False)
-        elif "три" in text:
-            self.press_combination("3", True)
-            time.sleep(0.5)
-            self.press_combination("3", False)
-        elif "четыре" in text:
-            self.press_combination("4", True)
-            time.sleep(0.5)
-            self.press_combination("4", False)
-        elif "пять" in text:
-            self.press_combination("5", True)
-            time.sleep(0.5)
-            self.press_combination("5", False)
-        elif "шесть" in text:
-            self.press_combination("6", True)
-            time.sleep(0.5)
-            self.press_combination("6", False)
-        elif "семь" in text:
-            self.press_combination("7", True)
-            time.sleep(0.5)
-            self.press_combination("7", False)
-        elif "восемь" in text:
-            self.press_combination("8", True)
-            time.sleep(0.5)
-            self.press_combination("8", False)
-        elif "девять" in text:
-            self.press_combination("9", True)
-            time.sleep(0.5)
-            self.press_combination("9", False)
+            for i in range(text.count("один")):
+                self.press_combination("1", True)
+                time.sleep(0.5)
+                self.press_combination("1", False)
+        if "два" in text:
+            for i in range(text.count("два")):
+                self.press_combination("2", True)
+                time.sleep(0.5)
+                self.press_combination("2", False)
+        if "три" in text:
+            for i in range(text.count("три")):
+                self.press_combination("3", True)
+                time.sleep(0.5)
+                self.press_combination("3", False)
+        if "четыре" in text:
+            for i in range(text.count("четыре")):
+                self.press_combination("4", True)
+                time.sleep(0.5)
+                self.press_combination("4", False)
+        if "пять" in text:
+            for i in range(text.count("пять")):
+                self.press_combination("5", True)
+                time.sleep(0.5)
+                self.press_combination("5", False)
+        if "шесть" in text:
+            for i in range(text.count("шесть")):
+                self.press_combination("6", True)
+                time.sleep(0.5)
+                self.press_combination("6", False)
+        if "семь" in text:
+            for i in range(text.count("семь")):
+                self.press_combination("7", True)
+                time.sleep(0.5)
+                self.press_combination("7", False)
+        if "восемь" in text:
+            for i in range(text.count("восемь")):
+                self.press_combination("8", True)
+                time.sleep(0.5)
+                self.press_combination("8", False)
+        if "девять" in text:
+            for i in range(text.count("девять")):
+                self.press_combination("9", True)
+                time.sleep(0.5)
+                self.press_combination("9", False)
         elif "инвентарь" in text:
             self.press_combination("I", True)
             self.press_combination("I", False)
-        elif "стоп" in text:
-            self.press_combination("Ctrl+P", True)
-            self.press_combination("Ctrl+P", False)
-            self.press_combination("Esq", True)
-            self.press_combination("Esq", False)
-        elif "старт" in text:
-            self.press_combination("Ctrl+P", True)
-            self.press_combination("Ctrl+P", False)
+        elif "остановить" in text:
+            self.toggle_pause()
+            self.press_combination("escape", True)
+            self.press_combination("escape", False)
+        elif "продолжить" in text:
+            self.toggle_pause()
         elif "меню" in text:
-            self.press_combination("Esq", True)
-            self.press_combination("Esq", False)
+            self.press_combination("escape", True)
+            self.press_combination("escape", False)
         elif "конец игры" in text:
-            self.press_combination("Ctrl+Q", True)
-            self.press_combination("Ctrl+Q", False)
+            if self.paused:
+                self.toggle_pause()
+            self.press_combination("escape", True)
+            self.press_combination("escape", False)
+            if self.exit:
+                self.exit(True)
 
     def load_model(self, path, output_dim, input_dim, dropout):
         model = LSTMModel(input_dim, hidden_dim=128, output_dim=output_dim, dropout=dropout).to(self.device)
@@ -247,11 +269,9 @@ class GameController(QThread):
         else:
             vertical_angle = 10 * vertical_angle / abs(vertical_angle)
 
-        # Смещения по осям
         dx = int(horizontal_angle * sens)
         dy = int(vertical_angle * sens)
 
-        # Плавное движение мыши
         pdi.moveRel(round(dx), round(dy))
 
     def is_jump_or_sit(self, distances, points):
@@ -477,26 +497,25 @@ class GameController(QThread):
         cv2.destroyAllWindows()
 
     def stop(self):
-        if self.voice_listener:
-            self.voice_listener.stop()
-            self.voice_listener.join()
         self._stop_event = True
         self.quit()
         self.wait()
 
     def toggle_pause(self):
+        print(self.paused)
         self.paused = not self.paused
-
+        print(self.paused)
 
 class ControllerThread(QThread):
     controller_ready = Signal()
 
-    def __init__(self, action_model_path, walk_model_path, actions, walk_actions):
+    def __init__(self, action_model_path, walk_model_path, actions, walk_actions, exit=None):
         super().__init__()
         self.action_model_path = action_model_path
         self.walk_model_path = walk_model_path
         self.actions = actions
         self.walk_actions = walk_actions
+        self.exit = exit
 
     def run(self):
         self.controller = GameController(
@@ -504,10 +523,12 @@ class ControllerThread(QThread):
             walk_model_path=self.walk_model_path,
             actions=self.actions,
             walk_actions=self.walk_actions,
-            camera_index=1
+            camera_index=1,
+            exit=self.exit
         )
-        self.controller_ready.emit()
         self.controller.start()
+        self.controller_ready.emit()
+        self.exec()
 
     def stop(self):
         if self.controller:
@@ -524,9 +545,12 @@ class GameLauncher:
         self.controller_thread = ControllerThread(action_model_path=action_model_path,
                                                   walk_model_path=walk_model_path,
                                                   actions=actions,
-                                                  walk_actions=walk_actions)
+                                                  walk_actions=walk_actions,
+                                                  exit=self.exit)
         self.loading_window = LoadingWindow()
         self.launch_game()
+        self.voice_model_pth = str(Path(__file__).resolve().parent.parent / "run_model" / "vosk-model-small-ru-0.22")
+        self.voice_listener = None
         self.controller_thread.controller_ready.connect(self.on_controller_ready)
         # self.exit_dialog = ExitDialog(self.controller_thread)
 
@@ -539,28 +563,22 @@ class GameLauncher:
         self.controller_thread.start()
 
     def on_controller_ready(self):
+        self.voice_listener = VoiceCommandListener(self.voice_model_pth)
+
+        self.voice_listener.command_received.connect(self.controller_thread.controller.handle_voice_command)
+        self.voice_listener.start()
         self.loading_window.close()
 
         self.process = subprocess.Popen([str(self.exe_file)])
         print("Игра запущена:", self.exe_file)
 
-        self.setup_shortcuts()
-
-    def setup_shortcuts(self):
-        self.pause_shortcut = QShortcut(QKeySequence("Ctrl+P"), self.parent_window)
-        self.pause_shortcut.activated.connect(self.toggle_pause)
-
-        self.exit_shortcut = QShortcut(QKeySequence("Ctrl+Q"), self.parent_window)
-        self.exit_shortcut.activated.connect(self.show_exit_dialog)
-
-    def toggle_pause(self):
-        self.controller_thread.controller.toggle_pause()
-
-    def show_exit_dialog(self):
-        print("Игра завершена")
-        self.controller_thread.stop()
-        if self.on_exit_dialog_done:
-            self.on_exit_dialog_done(True)
+    def exit(self, result):
+        if(result):
+            print("Игра завершена")
+            self.voice_listener.stop()
+            self.controller_thread.stop()
+            if self.on_exit_dialog_done:
+                self.on_exit_dialog_done(True)
 
 # class ExitDialog(QDialog):
 #     def __init__(self, controller_thread):
