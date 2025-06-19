@@ -10,21 +10,23 @@ from PySide6.QtCore import QThread, Signal, Qt, QSize
 from PySide6.QtGui import QMovie, QImage, QPixmap, QShortcut, QKeySequence
 from PySide6.QtWidgets import QMessageBox, QWidget, QVBoxLayout, QLabel, QApplication, QDialog, QHBoxLayout, QPushButton
 from flask import Flask, Response
-from matplotlib import pyplot as plt
 
 from logic.classification_model import LSTMModel
 from logic.utils import extract_keypoints
-from logic.rstp_server import download_mediamtx, start_mediamtx, stop_mediamtx, install_ffmpeg
 import torch
 import time
 import ctypes
 
+import queue
+import json
+from vosk import Model, KaldiRecognizer
+import sounddevice as sd
 import pydirectinput as pdi
 
 # app = Flask(__name__)
 # last_frame = None
 # lock = threading.Lock()
-
+#
 # def generate():
 #     global last_frame
 #     while True:
@@ -38,6 +40,35 @@ import pydirectinput as pdi
 #         yield (b'--frame\r\n'
 #                b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
 #
+# @app.route('/')
+# def index():
+#     return '''
+#     <html>
+#     <body style="margin:0; overflow:hidden; background:black;">
+#         <img id="video" style="width:100%; height:auto;" />
+#         <script>
+#         const img = document.getElementById("video");
+#
+#         function loadStream() {
+#             img.src = "/video?" + new Date().getTime();
+#         }
+#
+#         img.onerror = () => {
+#             console.log("Ошибка загрузки потока, перезагрузить страницу через 3 секунды...");
+#             setTimeout(() => location.reload(), 3000);
+#         };
+#
+#         img.onload = () => {
+#             console.log("Поток загружен");
+#         };
+#
+#         loadStream();
+#         </script>
+#     </body>
+#     </html>
+#     '''
+#
+#
 #
 # @app.route('/video')
 # def video_feed():
@@ -48,14 +79,8 @@ import pydirectinput as pdi
 #     print("Starting Flask server...")
 #     app.run(host='0.0.0.0', port=8080, threaded=True, debug=False, use_reloader=False)
 
-import threading
-import queue
-import json
-from vosk import Model, KaldiRecognizer
-import sounddevice as sd
-
 class VoiceCommandListener(QThread):
-    command_received = Signal(str)  # можно подключить к слоту
+    command_received = Signal(str)
 
     def __init__(self, model_path: str):
         super().__init__()
@@ -345,9 +370,9 @@ class GameController(QThread):
 
 
     def run(self):
-        fourcc = cv2.VideoWriter_fourcc(*"mp4v")
         # global last_frame
         # threading.Thread(target=run_flask, daemon=True).start()
+        fourcc = cv2.VideoWriter_fourcc(*"mp4v")
         os.makedirs("./scrincast", exist_ok=True)
 
         jump = False
@@ -358,10 +383,9 @@ class GameController(QThread):
         walk_pred = self.walk_label_map["Бездействие"]
         prev = self.walk_label_map["Бездействие"]
         segment_number = 0
-        f = 0
-        frames = []
         vid_path = os.path.join("./scrincast", f"video{segment_number}.mp4")
         video_writer = cv2.VideoWriter(vid_path, fourcc, 30, (640, 480))
+
         while not self._stop_event:
             while self.paused:
                 time.sleep(0.1)
@@ -392,10 +416,9 @@ class GameController(QThread):
                     self.press_combination(self.walk_actions["Прыжок"][0], jump)
                 if (sit != f_sit):
                     self.walk_actions["Сесть"][1] = sit
-                    self.press_combination(self.walk_actions["Сесть"][0], sit)
+                    self.press_combination(self.walk_actions["Сесть"][0], 1)
 
             if len(self.sequence1) == 15:
-                f = 1
                 with torch.no_grad():
                     action_res = self.action_predict(np.expand_dims(self.sequence1, axis=0))[0]
                     walk_res, prev = self.walk_predict(prev, np.expand_dims(self.sequence2, axis=0))
@@ -434,18 +457,8 @@ class GameController(QThread):
             self.prev_time = curr_time
             cv2.putText(frame, f"FPS: {fps:.2f}", (10, 30),
                         cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
-            frames.append(frame)
 
-            if f:
-                segment_number += 1
-                print(vid_path)
-                for frame in frames:
-                    video_writer.write(frame)
-                frames = frames[-10:]
-                f = 0
-                # vid_path = os.path.join("./scrincast", f"video{segment_number}.mp4")
-                # video_writer = cv2.VideoWriter(vid_path, fourcc, 30, (640, 480))
-
+            video_writer.write(frame)
             # with lock:
             #     last_frame = frame.copy()
 
@@ -502,6 +515,22 @@ class GameController(QThread):
         self.wait()
 
     def toggle_pause(self):
+        for k in self.actions.keys():
+            if self.actions[k][1]:
+                key = self.actions[k][0]
+                if key in ['left click', 'right click']:
+                    self.press_mouse(key, 0)
+                else:
+                    self.press_combination(key, 0)
+
+        for k in self.walk_actions.keys():
+            if self.walk_actions[k][1]:
+                key = self.walk_actions[k][0]
+                if key in ['left click', 'right click']:
+                    self.press_mouse(key, 0)
+                else:
+                    self.press_combination(key, 0)
+
         print(self.paused)
         self.paused = not self.paused
         print(self.paused)

@@ -1,0 +1,22 @@
+{
+    "appid": "1905180",
+    "name": "OBS Studio",
+    "installdir": "OBS Studio",
+    "exe": [
+        "C:/Program Files (x86)/Steam/steamapps/common/OBS Studio/bin/64bit/obs-amf-test.exe",
+        "C:/Program Files (x86)/Steam/steamapps/common/OBS Studio/bin/64bit/obs-ffmpeg-mux.exe",
+        "C:/Program Files (x86)/Steam/steamapps/common/OBS Studio/bin/64bit/obs-nvenc-test.exe",
+        "C:/Program Files (x86)/Steam/steamapps/common/OBS Studio/bin/64bit/obs-qsv-test.exe",
+        "C:/Program Files (x86)/Steam/steamapps/common/OBS Studio/bin/64bit/obs64.exe",
+        "C:/Program Files (x86)/Steam/steamapps/common/OBS Studio/data/obs-plugins/win-capture/get-graphics-offsets32.exe",
+        "C:/Program Files (x86)/Steam/steamapps/common/OBS Studio/data/obs-plugins/win-capture/get-graphics-offsets64.exe",
+        "C:/Program Files (x86)/Steam/steamapps/common/OBS Studio/data/obs-plugins/win-capture/inject-helper32.exe",
+        "C:/Program Files (x86)/Steam/steamapps/common/OBS Studio/data/obs-plugins/win-capture/inject-helper64.exe",
+        "C:/Program Files (x86)/Steam/steamapps/common/OBS Studio/obs-plugins/64bit/obs-browser-page.exe"
+    ],
+    "assets": {
+        "cover": "C:/Program Files (x86)/Steam/appcache/librarycache/1905180/library_600x900.jpg",
+        "hero": "C:/Program Files (x86)/Steam/appcache/librarycache/1905180/library_hero.jpg",
+        "logo": "C:/Program Files (x86)/Steam/appcache/librarycache/1905180/logo.png"
+    }
+}
