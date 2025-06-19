@@ -172,7 +172,7 @@ class MainMenu(QWidget):
                 continue
 
             game = creator.read_manifest(game_folder)
-            if game.get('assets').get('cover') == ".":
+            if game.get('assets').get('cover') == "." or game.get("appid") == "1905180":
                 continue
 
             tile = GameTile(game, self)

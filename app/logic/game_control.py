@@ -252,7 +252,7 @@ class GameController(QThread):
         else:
             pdi.mouseUp(button=button_name.split()[0])
 
-    def handle_prediction(self, action_res, walk_res):
+    def handle_prediction(self, action_res, walk_res, prev_action):
         pred = torch.where(action_res == 1)[0].cpu().tolist()
         walk_pred = walk_res
 
@@ -278,6 +278,8 @@ class GameController(QThread):
             flag = self.actions[act][1]
             mode = True if (self.label_map[act] in pred and not drop_flags) else False
             if flag != mode:
+                # if mode and (act == "Удар левой" or act == "Удар правой") and "Бездействие" not in prev_action and act not in prev_action:
+                #     continue
                 self.actions[act][1] = mode
                 if key in ['left click', 'right click']:
                     self.press_mouse(key, mode)
@@ -285,14 +287,14 @@ class GameController(QThread):
                     self.press_combination(key, mode)
 
     def move_mouse_by_head_angles(self, vertical_angle, horizontal_angle, sens=0.1):
-        if abs(horizontal_angle) < 0.8:
+        if abs(horizontal_angle) < 0.75:
             horizontal_angle = 0
         else:
-            horizontal_angle = 10 * horizontal_angle / abs(horizontal_angle)
+            horizontal_angle = -30 * horizontal_angle / abs(horizontal_angle)
         if abs(vertical_angle) < 0.7:
             vertical_angle = 0
         else:
-            vertical_angle = 10 * vertical_angle / abs(vertical_angle)
+            vertical_angle = -10 * vertical_angle / abs(vertical_angle)
 
         dx = int(horizontal_angle * sens)
         dy = int(vertical_angle * sens)
@@ -381,6 +383,7 @@ class GameController(QThread):
         distances = []
         pred = []
         walk_pred = self.walk_label_map["Бездействие"]
+        prev_action = []
         prev = self.walk_label_map["Бездействие"]
         segment_number = 0
         vid_path = os.path.join("./scrincast", f"video{segment_number}.mp4")
@@ -417,14 +420,16 @@ class GameController(QThread):
                 if (sit != f_sit):
                     self.walk_actions["Сесть"][1] = sit
                     self.press_combination(self.walk_actions["Сесть"][0], 1)
+                    self.press_combination(self.walk_actions["Сесть"][0], 0)
 
             if len(self.sequence1) == 15:
                 with torch.no_grad():
                     action_res = self.action_predict(np.expand_dims(self.sequence1, axis=0))[0]
                     walk_res, prev = self.walk_predict(prev, np.expand_dims(self.sequence2, axis=0))
 
-                self.handle_prediction(action_res, walk_res)
+                self.handle_prediction(action_res, walk_res, prev_action)
                 pred = torch.where(action_res == 1)[0].cpu().tolist()
+                prev_action = pred
                 walk_pred = walk_res
                 self.sequence1 = self.sequence1[-10:]
                 self.sequence2 = self.sequence2[-10:]
