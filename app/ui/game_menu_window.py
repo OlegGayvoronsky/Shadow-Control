@@ -653,12 +653,12 @@ class GameMenu(QWidget):
                     game_data["assets"][key] = self.game_data.get("assets").get(key)
                     continue
 
-                os.unlink(self.game_data.get("assets").get(key))
+                os.unlink(str(self.game_data.get("assets").get(key)))
                 type = path.split(".")[-1]
-                dst = Path(game_name) / "assets" / f"{key}.{type}"
-                shutil.copy(path, game_path / "assets" / f"{key}.{type}")
+                dst = self.global_game_folder / "assets" / f"{key}.{type}"
+                shutil.copy(path, dst)
                 game_data["assets"][key] = str(dst).replace("\\", "/")
-                self.game_data["assets"][key] = game_path / "assets" / f"{key}.{type}"
+                self.game_data["assets"][key] = dst
 
             with open(game_path / "appmanifest.json", "w", encoding="utf-8") as f:
                 json.dump(game_data, f, indent=4, ensure_ascii=False)

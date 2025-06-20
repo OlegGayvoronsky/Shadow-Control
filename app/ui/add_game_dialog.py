@@ -139,6 +139,7 @@ class AddGameDialog(QDialog):
     def choose_image(self, image_type):
         file_path, _ = QFileDialog.getOpenFileName(self, f"Выберите изображение для {image_type}", self.initial_dir,
                                                    "Images (*.jpg *.png *jpeg)")
+        print(file_path)
         if file_path:
             setattr(self, f"{image_type}_path", file_path)
 

@@ -86,7 +86,6 @@ class CollectDataDialog(QDialog):
 
         self.class_checkboxes = []
 
-        # Загрузка классов
         with open(class_json_path, "r", encoding="utf-8") as f:
             temporary_d = json.load(f)
             self.class_data = {}

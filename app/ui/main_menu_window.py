@@ -145,7 +145,7 @@ class MainMenu(QWidget):
 
                 dst = Path(install_dir) / "assets" / f"{key}.{type}"
                 shutil.copy(path, GAMES_DIR / dst)
-                game_data["assets"][key] = str(dst).replace("\\", "/")
+                game_data["assets"][key] = str(GAMES_DIR / dst).replace("\\", "/")
                 p = Path(path)
                 if p.exists() and p.is_file() and "temp" in p.parts:
                     p.unlink()
