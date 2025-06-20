@@ -2,7 +2,6 @@ import sys
 import os
 
 from PySide6.QtWidgets import QApplication, QDialog
-from ui.main_menu_window import MainMenu
 from ui.steam_path_dialog import SteamPathDialog
 from logic.steam_path_search import get_steam_path, save_steam_path
 
@@ -24,6 +23,7 @@ if __name__ == "__main__":
 
         steam_path = get_steam_path()
 
+    from ui.main_menu_window import MainMenu
     main_menu = MainMenu()
     main_menu.show()
     sys.exit(app.exec())

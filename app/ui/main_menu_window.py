@@ -132,7 +132,7 @@ class MainMenu(QWidget):
             game_path = GAMES_DIR / install_dir
 
             if game_path.exists():
-                QMessageBox.warning(self, "Ошибка", "Игра с таким именем уже существует.")
+                QMessageBox.information(self, " ", "Игра с таким именем уже существует.")
                 for key, path in game_data["assets"].items():
                     if "temp/" in path:
                         os.unlink(path)
@@ -152,7 +152,7 @@ class MainMenu(QWidget):
             with open(game_path / "appmanifest.json", "w", encoding="utf-8") as f:
                 json.dump(game_data, f, indent=4, ensure_ascii=False)
 
-            QMessageBox.information(self, "Успех", f"Игра '{game_name}' добавлена.")
+            QMessageBox.information(self, " ", f"Игра '{game_name}' добавлена.")
             self.load_games()
             QTimer.singleShot(0, self.populate_grid)
 

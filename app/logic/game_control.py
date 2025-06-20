@@ -1,14 +1,13 @@
 import os
 import subprocess
 import threading
-from math import atan2, degrees
 from pathlib import Path
 
 import cv2
 import numpy as np
 from PySide6.QtCore import QThread, Signal, Qt, QSize
-from PySide6.QtGui import QMovie, QImage, QPixmap, QShortcut, QKeySequence
-from PySide6.QtWidgets import QMessageBox, QWidget, QVBoxLayout, QLabel, QApplication, QDialog, QHBoxLayout, QPushButton
+from PySide6.QtGui import QMovie
+from PySide6.QtWidgets import QMessageBox, QWidget, QVBoxLayout, QLabel, QApplication
 from flask import Flask, Response
 
 from logic.classification_model import LSTMModel
@@ -23,10 +22,10 @@ from vosk import Model, KaldiRecognizer
 import sounddevice as sd
 import pydirectinput as pdi
 
-# app = Flask(__name__)
-# frame_queue = queue.Queue(maxsize=1)
-# lock = threading.Lock()
-#
+app = Flask(__name__)
+frame_queue = queue.Queue(maxsize=1)
+lock = threading.Lock()
+
 # def generate():
 #     while True:
 #         try:

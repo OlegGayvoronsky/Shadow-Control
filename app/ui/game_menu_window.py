@@ -67,12 +67,10 @@ class HeroFrame(QFrame):
 
     def paintEvent(self, event):
         painter = QPainter(self)
-        # Отображаем фоновое изображение
         hero_image = QPixmap(self.game_data.get("assets").get('hero'))
         if not hero_image.isNull():
             painter.drawPixmap(self.rect(), hero_image)
 
-        # Отображаем логотип
         logo_path = self.game_data.get("assets").get("logo")
         if os.path.exists(logo_path):
             logo_pixmap = QPixmap(logo_path)
@@ -241,14 +239,16 @@ class GameMenu(QWidget):
         self.global_game_folder = Path(__file__).resolve().parent.parent / game_folder
         self.run_model_pth = Path(__file__).resolve().parent.parent / "run_model"
         self.settings_path = os.path.join(str(self.global_game_folder), "settings.json").replace("\\", "/")
-        if os.path.exists(self.settings_path):
-            with open(self.settings_path, "r", encoding="utf-8") as f:
-                data = json.load(f)
-                if data == {}:
-                    data = {"Идти вперед": "W", "Идти назад": "S", "Идти влево": "A",
-                            "Идти вправо": "D", "Бег вперед": "Shift + W", "Прыжок": "Space", "Сесть": "Ctrl"}
+        if not os.path.exists(self.settings_path):
             with open(self.settings_path, "w", encoding="utf-8") as f:
-                json.dump(data, f, ensure_ascii=False, indent=4)
+                json.dump({}, f, ensure_ascii=False, indent=4)
+        with open(self.settings_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            if data == {}:
+                data = {"Идти вперед": "W", "Идти назад": "S", "Идти влево": "A",
+                        "Идти вправо": "D", "Бег вперед": "Shift + W", "Прыжок": "Space", "Сесть": "Ctrl"}
+        with open(self.settings_path, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=4)
 
         self.set_dark_gradient_background()
 
@@ -261,7 +261,6 @@ class GameMenu(QWidget):
         self.load_settings()
 
     def closeEvent(self, event):
-        # Сохраняем настройки перед закрытием
         self.save_settings()
         event.accept()
 
@@ -420,7 +419,7 @@ class GameMenu(QWidget):
                         flag = True
                         break
         if flag:
-            QMessageBox.warning(self, "Ошибка", "Для продолжения нужно задать имя класса и клавишу для каждой настройки")
+            QMessageBox.information(self, " ", "Для продолжения нужно задать имя класса и клавишу для каждой настройки")
             return
 
         from ui.collect_data_dialog import CollectDataDialog
@@ -430,7 +429,7 @@ class GameMenu(QWidget):
             select_count = dialog.get_count()
 
             if not selected_classes:
-                QMessageBox.warning(self, "Ошибка", "Нужно выбрать хотя бы один класс.")
+                QMessageBox.information(self, " ", "Нужно выбрать хотя бы один класс.")
                 return
 
             self.delete_empty_folders(selected_classes, self.global_game_folder / "VidData")
@@ -449,7 +448,7 @@ class GameMenu(QWidget):
 
     def prepare_model(self):
         if not os.path.exists(self.global_game_folder / "VidData"):
-            QMessageBox.information(self, "Подготовка модели", f"Сначала нужно собрать данные для каждого действия")
+            QMessageBox.information(self, " ", f"Сначала нужно собрать данные для каждого действия")
             return
 
         actions = []
@@ -544,7 +543,7 @@ class GameMenu(QWidget):
 
     def remove_setting_row(self, row_widget: QWidget, index):
         if index <= 6:
-            QMessageBox.information(self, "Удаление настройки", "Нельзя удалить настройки движения!")
+            QMessageBox.information(self, " ", "Нельзя удалить настройки движения!")
             return
         self.settings_layout.removeWidget(row_widget)
         row_widget.setParent(None)
@@ -582,7 +581,7 @@ class GameMenu(QWidget):
 
     def launch_game(self):
         if not os.path.exists(self.global_game_folder / "checkpoints"):
-            QMessageBox.information(self, "Запуск игры", "Сперва нужно подготовить модель")
+            QMessageBox.information(self, " ", "Сперва нужно подготовить модель")
             return
 
         models = [file.name for file in (self.global_game_folder / "checkpoints").iterdir() if file.is_dir()]
@@ -611,7 +610,7 @@ class GameMenu(QWidget):
                     actions["Бездействие"] = ["", True]
                     walk_actions["Бездействие"] = ["", True]
             else:
-                QMessageBox.information(self, "Запуск игры", "Отсутствуют настройки")
+                QMessageBox.information(self, " ", "Отсутствуют настройки")
                 return
 
             from logic.game_control import GameLauncher
@@ -632,7 +631,7 @@ class GameMenu(QWidget):
 
     def open_edit_dialog(self):
         if self.game_data.get("appid") != -1:
-            QMessageBox.warning(self, "Ошибка", "Нельзя изменить параметры игр из Steam")
+            QMessageBox.information(self, " ", "Нельзя изменить параметры игр из Steam")
             return
 
         from ui.add_game_dialog import AddGameDialog
@@ -646,7 +645,7 @@ class GameMenu(QWidget):
             game_path = Path(self.game_folder)
 
             if game_name != self.game_data.get("name"):
-                QMessageBox.warning(self, "Ошибка", "Указан другой .exe файл.")
+                QMessageBox.information(self, " ", "Указан другой .exe файл.")
                 return
 
             for key, path in game_data["assets"].items():
@@ -664,6 +663,6 @@ class GameMenu(QWidget):
             with open(game_path / "appmanifest.json", "w", encoding="utf-8") as f:
                 json.dump(game_data, f, indent=4, ensure_ascii=False)
 
-            QMessageBox.information(self, "Успех", f"Параметры '{game_name}' изменены.")
+            QMessageBox.information(self, " ", f"Параметры '{game_name}' изменены.")
             self.hero.update()
 

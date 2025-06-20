@@ -6,13 +6,14 @@ from PySide6.QtWidgets import (
     QDialog, QVBoxLayout, QLabel, QLineEdit, QPushButton,
     QFileDialog, QHBoxLayout, QMessageBox
 )
-from PySide6.QtGui import QPixmap, QPainter, QLinearGradient, QColor, QFont, QImage, QCursor
+from PySide6.QtGui import QPixmap, QPainter, QLinearGradient, QColor, QFont, QImage, QCursor, QIcon
 from PySide6.QtCore import Qt, QSize
 
 
 class AddGameDialog(QDialog):
     def __init__(self, type, game=None):
         super().__init__()
+        self.setWindowIcon(QIcon("assets/icon.png"))
         self.setWindowFlags(Qt.FramelessWindowHint | Qt.Dialog)
         self.setFixedSize(400, 420)
         self.setStyleSheet(self.load_styles())
@@ -145,7 +146,7 @@ class AddGameDialog(QDialog):
         exe_path = self.exe_input.text().strip()
 
         if not exe_path:
-            QMessageBox.warning(self, "Ошибка", "Поле 'Путь до .exe' должно быть заполнено!")
+            QMessageBox.information(self, " ", "Поле 'Путь до .exe' должно быть заполнено!")
             return None
 
         name = Path(exe_path).name.split(".")[0]
