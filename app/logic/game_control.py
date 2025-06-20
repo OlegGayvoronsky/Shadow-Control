@@ -24,21 +24,21 @@ import sounddevice as sd
 import pydirectinput as pdi
 
 # app = Flask(__name__)
-# last_frame = None
+# frame_queue = queue.Queue(maxsize=1)
 # lock = threading.Lock()
 #
 # def generate():
-#     global last_frame
 #     while True:
-#         with lock:
-#             if last_frame is None:
-#                 continue
-#             ret, jpeg = cv2.imencode('.jpg', last_frame)
-#             if not ret:
-#                 continue
-#             frame = jpeg.tobytes()
+#         try:
+#             frame = frame_queue.get(timeout=1.0)
+#         except queue.Empty:
+#             continue
+#         ret, jpeg = cv2.imencode('.jpg', frame)
+#         if not ret:
+#             continue
 #         yield (b'--frame\r\n'
-#                b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
+#                b'Content-Type: image/jpeg\r\n\r\n' + jpeg.tobytes() + b'\r\n')
+#
 #
 # @app.route('/')
 # def index():
@@ -214,6 +214,10 @@ class GameController(QThread):
         elif "инвентарь" in text:
             self.press_combination("I", True)
             self.press_combination("I", False)
+        elif "гойда" in text:
+            self.press_combination("z", True)
+            time.sleep(1)
+            self.press_combination("z", False)
         elif "остановить" in text:
             self.toggle_pause()
             self.press_combination("escape", True)
@@ -278,8 +282,6 @@ class GameController(QThread):
             flag = self.actions[act][1]
             mode = True if (self.label_map[act] in pred and not drop_flags) else False
             if flag != mode:
-                # if mode and (act == "Удар левой" or act == "Удар правой") and "Бездействие" not in prev_action and act not in prev_action:
-                #     continue
                 self.actions[act][1] = mode
                 if key in ['left click', 'right click']:
                     self.press_mouse(key, mode)
@@ -287,10 +289,10 @@ class GameController(QThread):
                     self.press_combination(key, mode)
 
     def move_mouse_by_head_angles(self, vertical_angle, horizontal_angle, sens=0.1):
-        if abs(horizontal_angle) < 0.75:
+        if abs(horizontal_angle) < 0.7:
             horizontal_angle = 0
         else:
-            horizontal_angle = -30 * horizontal_angle / abs(horizontal_angle)
+            horizontal_angle = -horizontal_angle * 100
         if abs(vertical_angle) < 0.7:
             vertical_angle = 0
         else:
@@ -372,7 +374,6 @@ class GameController(QThread):
 
 
     def run(self):
-        # global last_frame
         # threading.Thread(target=run_flask, daemon=True).start()
         fourcc = cv2.VideoWriter_fourcc(*"mp4v")
         os.makedirs("./scrincast", exist_ok=True)
@@ -449,7 +450,7 @@ class GameController(QThread):
                 sp = results.pose_landmarks.landmark[12]
                 jx, sx = int(jp.x * w), int(sp.x * w)
                 jy, sy = int(jp.y * h), int(sp.y * h)
-                cv2.putText(frame, f"j: {jump}", (jx, jy),
+                cv2.putText(frame, f"j: {angle2}", (jx, jy),
                             cv2.FONT_HERSHEY_COMPLEX, 2, (255, 0, 0), 2)
                 cv2.putText(frame, f"s: {sit}", (sx, sy),
                             cv2.FONT_HERSHEY_COMPLEX, 2, (0, 0, 255), 2)
@@ -464,9 +465,10 @@ class GameController(QThread):
                         cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
 
             video_writer.write(frame)
-            # with lock:
-            #     last_frame = frame.copy()
-
+            # try:
+            #     frame_queue.put_nowait(frame.copy())
+            # except queue.Full:
+            #     pass
 
         for k in self.actions.keys():
             if self.actions[k][1]:
