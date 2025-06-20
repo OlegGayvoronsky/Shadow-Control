@@ -60,7 +60,7 @@ class MainMenu(QWidget):
     def __init__(self):
         super().__init__()
         self.setWindowTitle("Shadow — Библиотека игр")
-        self.setWindowIcon(QIcon("assets/icon.png"))
+        self.setWindowIcon(QIcon(str(Path(__file__).resolve().parent.parent / Path("assets/icon.png"))))
         self.showMaximized()
 
         self.set_dark_gradient_background()
@@ -146,8 +146,9 @@ class MainMenu(QWidget):
                 dst = Path(install_dir) / "assets" / f"{key}.{type}"
                 shutil.copy(path, GAMES_DIR / dst)
                 game_data["assets"][key] = str(dst).replace("\\", "/")
-                if "temp/" in path:
-                    os.unlink(path)
+                p = Path(path)
+                if p.exists() and p.is_file() and "temp" in p.parts:
+                    p.unlink()
 
             with open(game_path / "appmanifest.json", "w", encoding="utf-8") as f:
                 json.dump(game_data, f, indent=4, ensure_ascii=False)

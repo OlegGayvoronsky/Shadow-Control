@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from PySide6.QtCore import QThread, Signal, Qt
 import os
 import numpy as np
@@ -161,7 +163,7 @@ class TrainingWindow(QWidget):
         self.gear_label.setFixedSize(256, 256)
         self.gear_label.setScaledContents(True)
         self.gear_label.setAlignment(Qt.AlignCenter)
-        self.movie = QMovie("assets/ai_training.gif")
+        self.movie = QMovie(str(Path(__file__).resolve().parent.parent / Path("assets/ai_training.gif")))
         self.gear_label.setMovie(self.movie)
         self.movie.start()
 
@@ -191,7 +193,7 @@ class TrainingWindow(QWidget):
         self.layout.addWidget(self.final_label)
 
         self.close_button = QPushButton(self)
-        self.close_button.setIcon(QIcon("assets/close.png"))
+        self.close_button.setIcon(QIcon(str(Path(__file__).resolve().parent.parent / Path("assets/close.png"))))
         self.close_button.setStyleSheet("""
             QPushButton {
                 background: transparent;
@@ -244,7 +246,7 @@ class TrainingWindow(QWidget):
         self.progress.setVisible(False)
         self.movie.stop()
 
-        self.check_animation = QMovie("assets/complete.gif")
+        self.check_animation = QMovie(str(Path(__file__).resolve().parent.parent / Path("assets/complete.gif")))
         self.gear_label.setMovie(self.check_animation)
         self.gear_label.setVisible(True)
         self.final_label.setVisible(True)

@@ -232,7 +232,7 @@ class GameMenu(QWidget):
     def __init__(self, game_data: dict, game_folder: str):
         super().__init__()
         self.setWindowTitle(f"{game_data.get("name")}")
-        self.setWindowIcon(QIcon("assets/icon.png"))
+        self.setWindowIcon(QIcon(str(Path(__file__).resolve().parent.parent / Path("assets/icon.png"))))
         self.showMaximized()
         self.game_data = game_data
         self.game_folder = game_folder
@@ -272,7 +272,7 @@ class GameMenu(QWidget):
         top_layout.setContentsMargins(10, 10, 10, 10)
 
         self.back_button = QPushButton()
-        self.back_button.setIcon(QIcon("assets/back_arrow.png"))
+        self.back_button.setIcon(QIcon(str(Path(__file__).resolve().parent.parent / Path("assets/back_arrow.png"))))
         self.back_button.setIconSize(QSize(32, 32))
         self.back_button.setCursor(QCursor(Qt.PointingHandCursor))
         self.back_button.setStyleSheet("background: transparent; border: none;")
@@ -314,7 +314,7 @@ class GameMenu(QWidget):
         self.layout.addWidget(self.hero)
 
         self.settings_button = AnimatedButton(self.hero)
-        self.settings_button.setIcon(QIcon("assets/gear.png"))
+        self.settings_button.setIcon(QIcon(str(Path(__file__).resolve().parent.parent / Path("assets/gear.png"))))
         self.settings_button.clicked.connect(self.open_edit_dialog)
 
         self.hero.resizeEvent = self.position_gear_button
@@ -350,12 +350,12 @@ class GameMenu(QWidget):
         header_layout.setContentsMargins(20, 10, 20, 0)
 
         self.collect_data_button = AnimatedButton()
-        self.collect_data_button.setIcon(QIcon("assets/folder.png"))
+        self.collect_data_button.setIcon(QIcon(str(Path(__file__).resolve().parent.parent / Path("assets/folder.png"))))
         self.collect_data_button.setToolTip("Подготовить данные для настроек")
         self.collect_data_button.clicked.connect(self.collect_data)
 
         self.prepare_model_button = AnimatedButton()
-        self.prepare_model_button.setIcon(QIcon("assets/brain.png"))
+        self.prepare_model_button.setIcon(QIcon(str(Path(__file__).resolve().parent.parent / Path("assets/brain.png"))))
         self.prepare_model_button.setToolTip("Обучить модель на собранных данных")
         self.prepare_model_button.clicked.connect(self.prepare_model)
 
@@ -363,7 +363,7 @@ class GameMenu(QWidget):
         title.setStyleSheet("font-size: 20px; font-weight: bold; color: white;")
 
         self.add_setting_button = AnimatedButton()
-        self.add_setting_button.setIcon(QIcon("assets/add.png"))
+        self.add_setting_button.setIcon(QIcon(str(Path(__file__).resolve().parent.parent / Path("assets/add.png"))))
         self.add_setting_button.setToolTip("Добавить настройку")
         self.add_setting_button.clicked.connect(lambda: self.add_setting_row("", ""))
 
@@ -518,7 +518,7 @@ class GameMenu(QWidget):
         """)
 
         delete_button = QPushButton()
-        delete_button.setIcon(QIcon("assets/delete.png"))
+        delete_button.setIcon(QIcon(str(Path(__file__).resolve().parent.parent / Path("assets/delete.png"))))
         delete_button.setFixedSize(40, 40)
         delete_button.setCursor(Qt.PointingHandCursor)
         delete_button.setStyleSheet("""

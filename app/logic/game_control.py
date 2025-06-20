@@ -653,7 +653,7 @@ class LoadingWindow(QWidget):
         self.label = QLabel()
         self.label.setAlignment(Qt.AlignCenter)
 
-        self.movie = QMovie("assets/ai_training.gif")
+        self.movie = QMovie(str(Path(__file__).resolve().parent.parent / Path("assets/ai_training.gif")))
         self.movie.setScaledSize(QSize(200, 200))
         self.label.setMovie(self.movie)
         self.movie.start()

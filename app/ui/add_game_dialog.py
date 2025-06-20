@@ -13,7 +13,7 @@ from PySide6.QtCore import Qt, QSize
 class AddGameDialog(QDialog):
     def __init__(self, type, game=None):
         super().__init__()
-        self.setWindowIcon(QIcon("assets/icon.png"))
+        self.setWindowIcon(QIcon(str(Path(__file__).resolve().parent.parent / Path("assets/icon.png"))))
         self.setWindowFlags(Qt.FramelessWindowHint | Qt.Dialog)
         self.setFixedSize(400, 420)
         self.setStyleSheet(self.load_styles())
@@ -195,6 +195,8 @@ class AddGameDialog(QDialog):
             painter.drawText(image.rect(), Qt.AlignCenter, text)
         painter.end()
 
-        temp_path = os.path.join(os.getcwd(), f"temp/temp_{image_type}_{text}{type.get(image_type)}")
+        tp = Path(__file__).resolve().parent.parent / Path("temp")
+        tp.mkdir(exist_ok=True)
+        temp_path = str(tp / Path(f"temp_{image_type}_{text}{type.get(image_type)}"))
         image.save(temp_path)
         return temp_path
