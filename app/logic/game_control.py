@@ -214,10 +214,10 @@ class GameController(QThread):
         elif "инвентарь" in text:
             self.press_combination("I", True)
             self.press_combination("I", False)
-        elif "гойда" in text:
-            self.press_combination("z", True)
+        elif "года" in text:
+            self.press_combination("Z", True)
             time.sleep(1)
-            self.press_combination("z", False)
+            self.press_combination("Z", False)
         elif "остановить" in text:
             self.toggle_pause()
             self.press_combination("escape", True)
@@ -296,7 +296,7 @@ class GameController(QThread):
         if abs(vertical_angle) < 0.7:
             vertical_angle = 0
         else:
-            vertical_angle = -10 * vertical_angle / abs(vertical_angle)
+            vertical_angle = -vertical_angle * 15
 
         dx = int(horizontal_angle * sens)
         dy = int(vertical_angle * sens)
