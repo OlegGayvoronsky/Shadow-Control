@@ -79,7 +79,10 @@ class ActionModelTrainer(QThread):
         y = np.array(labels)
 
         X, y = shuffle(X, y, random_state=42)
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.05)
+        if(int(len(X) * 0.05) != 0):
+            X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.05)
+        else:
+            X_train, X_test, y_train, y_test = X, X, y, y
 
         X_train, X_test = torch.tensor(X_train, dtype=torch.float32), torch.tensor(X_test, dtype=torch.float32)
         y_train, y_test = torch.tensor(y_train, dtype=torch.float32), torch.tensor(y_test, dtype=torch.float32)

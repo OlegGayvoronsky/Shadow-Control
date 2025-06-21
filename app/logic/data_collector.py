@@ -17,11 +17,12 @@ class DataCollectorThread(QThread):
     show_message = Signal(str)
     toggle_pause_button = Signal(bool)
 
-    def __init__(self, actions, start_folder, no_sequences, sequence_length, data_path):
+    def __init__(self, actions, start_folder, no_sequences, sequence_length, data_path, camera_index):
         super().__init__()
         self.data_path = data_path
         os.makedirs(self.data_path, exist_ok=True)
 
+        self.camera_index = camera_index
         self.actions = np.array(actions) if actions else np.array([])
         self.start_folders = {action: start_folder for action in actions}
         self.no_sequences = no_sequences
@@ -55,7 +56,7 @@ class DataCollectorThread(QThread):
                 os.makedirs(os.path.join(self.data_path, action, str(dirmax + sequence)), exist_ok=True)
 
     def run(self):
-        cap = cv2.VideoCapture(1, cv2.CAP_DSHOW)
+        cap = cv2.VideoCapture(self.camera_index, cv2.CAP_DSHOW)
 
         for idx, action in enumerate(self.actions):
             self.update_progress.emit(0, self.no_sequences)
@@ -117,7 +118,7 @@ class DataCollectorThread(QThread):
 
 
 class DataCollectionWindow(QWidget):
-    def __init__(self, actions, start_folder, no_sequences, sequence_length, data_path):
+    def __init__(self, actions, start_folder, no_sequences, sequence_length, data_path, camera_index):
         super().__init__()
         self.setWindowFlags(Qt.FramelessWindowHint | Qt.Dialog)
         self.showMaximized()
@@ -156,7 +157,6 @@ class DataCollectionWindow(QWidget):
 
         layout = QVBoxLayout()
 
-        # Центрируем QLabel с видео по горизонтали
         image_layout = QHBoxLayout()
         image_layout.addStretch()
         image_layout.addWidget(self.image_label)
@@ -211,7 +211,7 @@ class DataCollectionWindow(QWidget):
             }
         """)
 
-        self.thread = DataCollectorThread(actions, start_folder, no_sequences, sequence_length, data_path)
+        self.thread = DataCollectorThread(actions, start_folder, no_sequences, sequence_length, data_path, camera_index)
         self.thread.update_frame.connect(self.update_image)
         self.thread.update_progress.connect(self.progress_bar.setValue)
         self.thread.update_class_progress.connect(self.class_progress_bar.setValue)

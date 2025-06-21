@@ -11,13 +11,15 @@ from logic.steam_path_search import get_steam_path, save_steam_path
 def is_valid_steam_path(path):
     return path and os.path.isdir(path) and os.path.exists(os.path.join(path, "steam.exe"))
 
-def save_camera_index(index):
+def save_camera_micro_index(index, micro_index):
     cnfg_pth = str(Path(__file__).resolve().parent / Path("config"))
-    with open(cnfg_pth + "/camera_index.json", "w") as f:
-        json.dump({"camera_index": index}, f)
+    with open(cnfg_pth + "/camera_micro_index.json", "w") as f:
+        json.dump({"camera_index": index, "micro_index": micro_index}, f)
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
+
+    (Path(__file__).resolve().parent / Path("config")).mkdir(exist_ok=True)
 
     steam_path = get_steam_path()
     while not is_valid_steam_path(steam_path):
@@ -28,10 +30,7 @@ if __name__ == "__main__":
 
         steam_path = get_steam_path()
 
-    def on_camera_selected(index):
-        save_camera_index(index)
-
-    cam_dialog = CameraSelectDialog(on_camera_selected=on_camera_selected)
+    cam_dialog = CameraSelectDialog(on_camera_selected=save_camera_micro_index)
     if cam_dialog.exec() != QDialog.Accepted:
         sys.exit()
 

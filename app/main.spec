@@ -12,7 +12,7 @@ a = Analysis(
         ('assets', 'assets'),
         ('logic', 'logic'),
         ('ui', 'ui'),
-        ('run_model', 'run_model'),
+        ('move_speek_models', 'move_speek_models'),
         ('.venv/Lib/site-packages/mediapipe/modules/pose_landmark', 'mediapipe/modules/pose_landmark'),
         ('.venv/Lib/site-packages/mediapipe/modules/pose_detection', 'mediapipe/modules/pose_detection'),
         ('.venv/Lib/site-packages/vosk/libvosk.dll', 'vosk')

@@ -81,9 +81,10 @@ lock = threading.Lock()
 class VoiceCommandListener(QThread):
     command_received = Signal(str)
 
-    def __init__(self, model_path: str):
+    def __init__(self, model_path: str, micro_index: int):
         super().__init__()
         self.model = Model(model_path)
+        self.micro_index = micro_index
         self.rec = KaldiRecognizer(self.model, 16000)
         self.q = queue.Queue()
         self._stop_event = False
@@ -102,7 +103,7 @@ class VoiceCommandListener(QThread):
             dtype='int16',
             channels=1,
             callback=self.callback,
-            device=7
+            device=self.micro_index
         ) as self.stream:
             while not self._stop_event:
                 try:
@@ -545,8 +546,9 @@ class GameController(QThread):
 class ControllerThread(QThread):
     controller_ready = Signal()
 
-    def __init__(self, action_model_path, walk_model_path, actions, walk_actions, exit=None):
+    def __init__(self, camera_index, action_model_path, walk_model_path, actions, walk_actions, exit=None):
         super().__init__()
+        self.camera_index = camera_index
         self.action_model_path = action_model_path
         self.walk_model_path = walk_model_path
         self.actions = actions
@@ -559,7 +561,7 @@ class ControllerThread(QThread):
             walk_model_path=self.walk_model_path,
             actions=self.actions,
             walk_actions=self.walk_actions,
-            camera_index=1,
+            camera_index=self.camera_index,
             exit=self.exit
         )
         self.controller.start()
@@ -573,19 +575,21 @@ class ControllerThread(QThread):
         self.wait()
 
 class GameLauncher:
-    def __init__(self, parent_window, exe_file, actions, walk_actions, action_model_path, walk_model_path, on_exit_dialog_done=None):
+    def __init__(self, parent_window, exe_file, camera_index, micro_index, actions, walk_actions, action_model_path, walk_model_path, on_exit_dialog_done=None):
         self.on_exit_dialog_done = on_exit_dialog_done
         self.parent_window = parent_window
         self.exe_file = exe_file
         self.process = None
-        self.controller_thread = ControllerThread(action_model_path=action_model_path,
+        self.micro_index = micro_index
+        self.controller_thread = ControllerThread(camera_index=camera_index,
+                                                  action_model_path=action_model_path,
                                                   walk_model_path=walk_model_path,
                                                   actions=actions,
                                                   walk_actions=walk_actions,
                                                   exit=self.exit)
         self.loading_window = LoadingWindow()
         self.launch_game()
-        self.voice_model_pth = str(Path(__file__).resolve().parent.parent / "run_model" / "vosk-model-small-ru-0.22")
+        self.voice_model_pth = str(Path(__file__).resolve().parent.parent / "move_speek_models" / "vosk-model-small-ru-0.22")
         self.voice_listener = None
         self.controller_thread.controller_ready.connect(self.on_controller_ready)
         # self.exit_dialog = ExitDialog(self.controller_thread)
@@ -599,7 +603,7 @@ class GameLauncher:
         self.controller_thread.start()
 
     def on_controller_ready(self):
-        self.voice_listener = VoiceCommandListener(self.voice_model_pth)
+        self.voice_listener = VoiceCommandListener(self.voice_model_pth, self.micro_index)
 
         self.voice_listener.command_received.connect(self.controller_thread.controller.handle_voice_command)
         self.voice_listener.start()

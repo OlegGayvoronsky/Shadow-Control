@@ -4,7 +4,6 @@ from pathlib import Path
 
 config_path = "config/steam_folder.json"
 CONFIG_PATH = Path(__file__).resolve().parent.parent / Path(config_path)
-(Path(__file__).resolve().parent.parent / Path("config")).mkdir(exist_ok=True)
 
 
 def get_steam_path():

@@ -1,3 +1,7 @@
+import json
+import os
+from pathlib import Path
+import sounddevice as sd
 import cv2
 from PySide6.QtWidgets import QDialog, QVBoxLayout, QLabel, QPushButton, QComboBox
 from PySide6.QtCore import Qt, QTimer
@@ -46,6 +50,14 @@ class CameraSelectDialog(QDialog):
         self.cap = None
         self.timer = QTimer(self)
         self.timer.timeout.connect(self.update_frame)
+        self.index = 0
+        self.micro_index = 0
+        cnfg_pth = str(Path(__file__).resolve().parent.parent / Path("config"))
+        if os.path.exists(os.path.join(cnfg_pth, "camera_micro_index.json")):
+            with open(cnfg_pth + "/camera_micro_index.json", "r") as f:
+                data = json.load(f)
+                self.index = data.get("camera_index")
+                self.micro_index = data.get("micro_index")
 
         layout = QVBoxLayout()
         layout.setContentsMargins(20, 20, 20, 20)
@@ -59,6 +71,26 @@ class CameraSelectDialog(QDialog):
         self.combo = QComboBox()
         self.combo.currentIndexChanged.connect(self.change_camera)
         self.populate_camera_list()
+        if self.combo.count() >= self.index:
+            self.combo.setCurrentIndex(self.index)
+        for i in range(self.combo.count()):
+            if self.combo.itemData(i) == self.index:
+                self.combo.setCurrentIndex(i)
+                break
+
+        audio_label = QLabel("Выберите микрофон для голосового управления:")
+        audio_label.setObjectName("dialogLabel")
+        audio_label.setWordWrap(True)
+        layout.addWidget(audio_label)
+
+        self.audio_combo = QComboBox()
+        self.populate_audio_devices()
+        for i in range(self.audio_combo.count()):
+            if self.audio_combo.itemData(i) == self.micro_index:
+                self.audio_combo.setCurrentIndex(i)
+                break
+
+        layout.addWidget(self.audio_combo)
         layout.addWidget(self.combo)
 
         self.video_label = QLabel()
@@ -83,6 +115,20 @@ class CameraSelectDialog(QDialog):
                 if ret:
                     self.combo.addItem(f"Камера {index}", index)
                 cap.release()
+
+    def populate_audio_devices(self):
+        self.audio_combo.clear()
+        devices = sd.query_devices()
+        for i, dev in enumerate(devices):
+            if dev['max_input_channels'] > 0:
+                try:
+                    with sd.InputStream(device=i, channels=1, samplerate=16000):
+                        name = dev['name']
+                        if dev['max_input_channels'] >= 2:
+                            name += " [2ch]"
+                        self.audio_combo.addItem(f"{name} (ID {i})", i)
+                except Exception:
+                    continue
 
     def start_preview(self):
         index = self.combo.currentData()
@@ -120,7 +166,9 @@ class CameraSelectDialog(QDialog):
             self.cap.release()
             self.cap = None
         if self.on_camera_selected:
-            self.on_camera_selected(self.combo.currentData())
+            selected_camera = self.combo.currentData()
+            selected_audio = self.audio_combo.currentData()
+            self.on_camera_selected(selected_camera, selected_audio)
         self.accept()
 
     def closeEvent(self, event):

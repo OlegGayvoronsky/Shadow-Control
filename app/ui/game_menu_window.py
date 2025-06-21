@@ -237,8 +237,9 @@ class GameMenu(QWidget):
         self.game_data = game_data
         self.game_folder = game_folder
         self.global_game_folder = Path(__file__).resolve().parent.parent / game_folder
-        self.run_model_pth = Path(__file__).resolve().parent.parent / "run_model"
+        self.run_model_pth = Path(__file__).resolve().parent.parent / "move_speek_models"
         self.settings_path = os.path.join(str(self.global_game_folder), "settings.json").replace("\\", "/")
+
         if not os.path.exists(self.settings_path):
             with open(self.settings_path, "w", encoding="utf-8") as f:
                 json.dump({}, f, ensure_ascii=False, indent=4)
@@ -249,6 +250,12 @@ class GameMenu(QWidget):
                         "Идти вправо": "D", "Бег вперед": "Shift + W", "Прыжок": "Space", "Сесть": "Ctrl"}
         with open(self.settings_path, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=4)
+
+        cnfg_pth = str(Path(__file__).resolve().parent.parent / Path("config"))
+        with open(cnfg_pth + "/camera_micro_index.json", "r") as f:
+            data = json.load(f)
+            self.index = data.get("camera_index")
+            self.micro_index = data.get("micro_index")
 
         self.set_dark_gradient_background()
 
@@ -408,6 +415,9 @@ class GameMenu(QWidget):
                 if os.path.isdir(folder_path) and not os.listdir(folder_path):
                     os.rmdir(folder_path)
 
+            if len(os.listdir(action_path)) == 0:
+                os.rmdir(action_path)
+
     def collect_data(self):
         flag = False
         self.save_settings()
@@ -440,7 +450,8 @@ class GameMenu(QWidget):
                 actions=selected_classes,
                 no_sequences=select_count,
                 sequence_length=30,
-                start_folder=1
+                start_folder=1,
+                camera_index=self.index
             )
 
             self.data_collection_window.show()
@@ -453,14 +464,27 @@ class GameMenu(QWidget):
 
         actions = []
         directories = []
+        flag1, flag2 = False, False
         with open(self.settings_path, "r", encoding="utf-8") as f:
             data = json.load(f)
             for idx, (action, keys) in enumerate(data.items()):
                 if idx > 6 and " + " not in action:
                     actions.append(action)
-                elif idx > 6:
+                if idx > 6:
                     directories.append(action)
+        directories.append("Бездействие")
+        actions.append("Бездействие")
         self.delete_empty_folders(directories, self.global_game_folder / "VidData")
+        for action in actions:
+            action_path = os.path.join(self.global_game_folder / "VidData", action)
+            if not os.path.isdir(action_path):
+                flag1 = True
+        flag2 = len(actions) <= 1
+        message1 = f"Сначала нужно собрать данные для каждого действия" if flag1 else ""
+        message2 = f"Добавьте еще классы. Достаточное количество: {2 - len(actions)}" if flag2 else ""
+        if flag1 or flag2:
+            QMessageBox.information(self, " ", (message1 + "\n" + message2).strip("\n"))
+            return
 
         name = "model_1"
         if os.path.exists(self.global_game_folder / "checkpoints"):
@@ -545,6 +569,7 @@ class GameMenu(QWidget):
         if index <= 6:
             QMessageBox.information(self, " ", "Нельзя удалить настройки движения!")
             return
+
         self.settings_layout.removeWidget(row_widget)
         row_widget.setParent(None)
         row_widget.deleteLater()
@@ -616,10 +641,12 @@ class GameMenu(QWidget):
             from logic.game_control import GameLauncher
             self.gl = GameLauncher(parent_window=self,
                                    exe_file=exe,
+                                   camera_index=self.index,
+                                   micro_index=self.micro_index,
                                    actions=actions,
                                    walk_actions=walk_actions,
                                    action_model_path=self.global_game_folder / "checkpoints" / model / "best_model.pth",
-                                   walk_model_path=self.run_model_pth / "run_model7" / "best_model.pth",
+                                   walk_model_path=self.run_model_pth / "run_model" / "best_model.pth",
                                    on_exit_dialog_done=self.on_exit_result)
 
     def on_exit_result(self, result):
