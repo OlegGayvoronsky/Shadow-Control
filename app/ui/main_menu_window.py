@@ -73,6 +73,22 @@ class MainMenu(QWidget):
         self.games_label = QLabel("Игры: (0)")
         self.games_label.setStyleSheet("color: white; font-size: 18px; font-weight: bold;")
 
+        self.settings_btn = QPushButton("Настройка устройств")
+        self.settings_btn.clicked.connect(self.open_device_settings)
+        self.settings_btn.setStyleSheet("""
+            QPushButton {
+                color: white;
+                background-color: #3b82f6;
+                border: none;
+                padding: 10px 20px;
+                border-radius: 8px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #2563eb;
+            }
+        """)
+
         self.add_game_btn = QPushButton("Добавить новую игру")
         self.add_game_btn.clicked.connect(self.add_game)
         self.add_game_btn.setStyleSheet("""
@@ -91,6 +107,7 @@ class MainMenu(QWidget):
 
         top_bar.addWidget(self.games_label)
         top_bar.addStretch()
+        top_bar.addWidget(self.settings_btn)
         top_bar.addWidget(self.add_game_btn)
         main_layout.addLayout(top_bar)
 
@@ -109,6 +126,17 @@ class MainMenu(QWidget):
 
         self.load_games()
         QTimer.singleShot(0, self.populate_grid)
+
+    def open_device_settings(self):
+        from ui.camera_select_dialog import CameraSelectDialog
+        cnfg_pth = str(Path(__file__).resolve().parent.parent / Path("config"))
+
+        def save_camera_micro_index(index, micro_index):
+            with open(cnfg_pth + "/camera_micro_index.json", "w") as f:
+                json.dump({"camera_index": index, "micro_index": micro_index}, f)
+
+        dialog = CameraSelectDialog(on_camera_selected=save_camera_micro_index)
+        dialog.exec()
 
     def set_dark_gradient_background(self):
         palette = QPalette()

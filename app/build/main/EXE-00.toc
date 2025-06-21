@@ -81,7 +81,7 @@
  [],
  False,
  False,
- 1750461362,
+ 1750539731,
  [('run.exe',
    'C:\\Users\\ogajv\\Documents\\GitHub\\Shadow-Control\\app\\.venv\\Lib\\site-packages\\PyInstaller\\bootloader\\Windows-64bit-intel\\run.exe',
    'EXECUTABLE')],

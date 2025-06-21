@@ -47,13 +47,17 @@ if __name__ == "__main__":
 
         devices = sd.query_devices()
         for i, dev in enumerate(devices):
-            if dev['max_input_channels'] > 0 and i == micro_index:
-                try:
-                    with sd.InputStream(device=i, channels=1, samplerate=16000):
+            if(i == micro_index):
+                if dev['max_input_channels'] > 0:
+                    try:
+                        with sd.InputStream(device=i, channels=1, samplerate=16000):
+                            print(i, micro_index)
+                            break
+                    except Exception:
+                        flag = True
                         break
-                except Exception:
+                else:
                     flag = True
-                    break
 
     if flag:
         from ui.camera_select_dialog import CameraSelectDialog
