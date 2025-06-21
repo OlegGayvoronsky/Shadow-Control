@@ -156,6 +156,7 @@ class GameController(QThread):
         self.invers_walk_label_map = {idx: action for action, idx in self.walk_label_map.items()}
 
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        print(self.device)
         self.model = self.load_model(model_path, len(self.actions.keys()), 33*4, 0.3)
         self.walk_model = self.load_model(walk_model_path, len(self.walk_actions.keys()) - 2, 23*4, 0)
         self.cap = cv2.VideoCapture(camera_index, cv2.CAP_DSHOW)
@@ -375,7 +376,7 @@ class GameController(QThread):
     def run(self):
         # threading.Thread(target=run_flask, daemon=True).start()
         fourcc = cv2.VideoWriter_fourcc(*"mp4v")
-        os.makedirs("./scrincast", exist_ok=True)
+        os.makedirs(str(Path(__file__).resolve().parent.parent / Path("scrincast")), exist_ok=True)
 
         jump = False
         sit = False
@@ -386,7 +387,7 @@ class GameController(QThread):
         prev_action = []
         prev = self.walk_label_map["Бездействие"]
         segment_number = 0
-        vid_path = os.path.join("./scrincast", f"video{segment_number}.mp4")
+        vid_path = os.path.join(str(Path(__file__).resolve().parent.parent / Path("scrincast")), f"video{segment_number}.mp4")
         video_writer = cv2.VideoWriter(vid_path, fourcc, 30, (640, 480))
 
         while not self._stop_event:
@@ -449,7 +450,7 @@ class GameController(QThread):
                 sp = results.pose_landmarks.landmark[12]
                 jx, sx = int(jp.x * w), int(sp.x * w)
                 jy, sy = int(jp.y * h), int(sp.y * h)
-                cv2.putText(frame, f"j: {angle2}", (jx, jy),
+                cv2.putText(frame, f"j: {jump}", (jx, jy),
                             cv2.FONT_HERSHEY_COMPLEX, 2, (255, 0, 0), 2)
                 cv2.putText(frame, f"s: {sit}", (sx, sy),
                             cv2.FONT_HERSHEY_COMPLEX, 2, (0, 0, 255), 2)

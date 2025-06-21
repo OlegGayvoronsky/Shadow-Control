@@ -660,7 +660,7 @@ class GameMenu(QWidget):
                 game_data["assets"][key] = str(dst).replace("\\", "/")
                 self.game_data["assets"][key] = dst
 
-            with open(game_path / "appmanifest.json", "w", encoding="utf-8") as f:
+            with open(self.global_game_folder / "appmanifest.json", "w", encoding="utf-8") as f:
                 json.dump(game_data, f, indent=4, ensure_ascii=False)
 
             QMessageBox.information(self, " ", f"Параметры '{game_name}' изменены.")
