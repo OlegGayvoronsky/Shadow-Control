@@ -22,9 +22,9 @@ from vosk import Model, KaldiRecognizer
 import sounddevice as sd
 import pydirectinput as pdi
 
-app = Flask(__name__)
-frame_queue = queue.Queue(maxsize=1)
-lock = threading.Lock()
+# app = Flask(__name__)
+# frame_queue = queue.Queue(maxsize=1)
+# lock = threading.Lock()
 
 # def generate():
 #     while True:
@@ -377,7 +377,7 @@ class GameController(QThread):
     def run(self):
         # threading.Thread(target=run_flask, daemon=True).start()
         fourcc = cv2.VideoWriter_fourcc(*"mp4v")
-        os.makedirs(str(Path(__file__).resolve().parent.parent / Path("scrincast")), exist_ok=True)
+        # os.makedirs(str(Path(__file__).resolve().parent.parent / Path("scrincast")), exist_ok=True)
 
         jump = False
         sit = False

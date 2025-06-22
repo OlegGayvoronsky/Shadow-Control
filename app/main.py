@@ -51,7 +51,6 @@ if __name__ == "__main__":
                 if dev['max_input_channels'] > 0:
                     try:
                         with sd.InputStream(device=i, channels=1, samplerate=16000):
-                            print(i, micro_index)
                             break
                     except Exception:
                         flag = True

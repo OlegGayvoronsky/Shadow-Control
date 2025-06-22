@@ -119,14 +119,24 @@ class CameraSelectDialog(QDialog):
     def populate_audio_devices(self):
         self.audio_combo.clear()
         devices = sd.query_devices()
+        seen_names = set()
+
         for i, dev in enumerate(devices):
+            name = dev['name'].lower()
+
+            if any(skip in name for skip in ["переназначение", "первичный", "default"]):
+                continue
+
             if dev['max_input_channels'] > 0:
                 try:
                     with sd.InputStream(device=i, channels=1, samplerate=16000):
-                        name = dev['name']
+                        display_name = dev['name']
                         if dev['max_input_channels'] >= 2:
-                            name += " [2ch]"
-                        self.audio_combo.addItem(f"{name} (ID {i})", i)
+                            display_name += " [2ch]"
+
+                        if display_name not in seen_names:
+                            seen_names.add(display_name)
+                            self.audio_combo.addItem(f"{display_name} (ID {i})", i)
                 except Exception:
                     continue
 
