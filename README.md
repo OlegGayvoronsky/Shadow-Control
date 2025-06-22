@@ -1,4 +1,4 @@
-# AniMotion <img src="Source/Images/Am1.ico" width="50"/>
+# Shadow Controle <img src="Source/Images/Am1.ico" width="50"/>
 **Генератор анимаций на основе детекции ключевых точек тела**
 
 ## 📖 Описание  
