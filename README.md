@@ -46,9 +46,9 @@
 <pre><code>git clone https://github.com/OlegGayvoronsky/Shadow-Control.git <br>
 cd Shadow-Control </code> </pre>
 **Установите зависимости:** <br>
-pip install -r requirements.txt </code> </pre>
+<pre><code>pip install -r requirements.txt </code> </pre>
 **Запустите приложение:** <br>
-python main.py </code> </pre>
+<pre><code>python main.py </code> </pre>
 
 ## [**Скринкаст**](https://drive.google.com/file/d/1jbNMLJBURs8i-50FwHDhD5eOlGUM9PX1/view?usp=sharing) ##
 
