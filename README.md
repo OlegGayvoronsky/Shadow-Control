@@ -50,7 +50,10 @@ pip install -r requirements.txt </code> </pre>
 **Запустите приложение:** <br>
 python main.py </code> </pre>
 
+## [**Скринкаст**](https://drive.google.com/file/d/1jbNMLJBURs8i-50FwHDhD5eOlGUM9PX1/view?usp=sharing) ##
+
 ## Авторы
 
 - [Олег Гайворонский]
-  
+
+*Icons by [**icons8**](https://icons8.ru/)*
