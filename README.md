@@ -1,4 +1,4 @@
-# <img src="Source/logo.png" width="20" height="20"/> Shadow Control
+# <img src="Source/icon.png" width="20" height="20"/> Shadow Control
 
 ## 📖 Описание
 
