@@ -33,6 +33,12 @@
 <h3>Окно игры с настройками управления и запуском</h3>
 <img src="Source/game_menu.png" width="400"/>
 
+<h3>Добавление игры</h3>
+<img src="Source/add_game.png" width="400"/>
+
+<h3>Окно игры с настройками управления и запуском</h3>
+<img src="Source/game_menu.png" width="400"/>
+
 <h3>Мастер сбора данных для обучения новых движений</h3>
 <img src="Source/data_collect.png" width="400"/>
 
